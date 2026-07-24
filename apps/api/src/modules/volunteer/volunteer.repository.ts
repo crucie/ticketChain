@@ -191,6 +191,27 @@ export async function findTicketForCheckin(
   return result.rows[0] ?? null;
 }
 
+export async function findTicketForCheckinByCode(
+  checkinCode: string
+): Promise<TicketCheckinRow | null> {
+  const result = await pool.query<TicketCheckinRow>(
+    `SELECT
+       t.id, t.event_id, t.tier_id, t.tier_index,
+       t.owner_user_id, t.owner_wallet_address,
+       t.token_id, t.contract_address, t.qr_secret,
+       t.status, t.seat_number,
+       tt.name AS tier_name,
+       tt.zone AS tier_zone,
+       COALESCE(w.is_blacklisted, FALSE) AS wallet_blacklisted
+     FROM tickets t
+     JOIN ticket_tiers tt ON tt.id = t.tier_id
+     LEFT JOIN wallets w ON w.wallet_address = t.owner_wallet_address
+     WHERE t.checkin_code = $1`,
+    [checkinCode]
+  );
+  return result.rows[0] ?? null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Check-in write operations (all within a transaction)              */
 /* ------------------------------------------------------------------ */

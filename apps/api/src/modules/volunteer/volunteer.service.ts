@@ -14,6 +14,7 @@ import {
   findVolunteerAssignments,
   findVolunteerEventDetail,
   findTicketForCheckin,
+  findTicketForCheckinByCode,
   insertCheckin,
   markTicketUsed,
   incrementCheckedIn,
@@ -24,22 +25,64 @@ import {
 } from './volunteer.repository.js';
 import type { VolunteerCheckinResult } from '@ticketchain/shared';
 import { env } from '../../config/env.js';
+import {
+  isValidCheckinCodeFormat,
+  normalizeCheckinCode,
+} from '../../shared/utils/checkin-code.js';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
 /* ------------------------------------------------------------------ */
 
 const QR_MAX_AGE_SECONDS = 90;
+const CODE_FAIL_LIMIT = 8;
+const CODE_FAIL_WINDOW_SECONDS = 15 * 60;
 
 /* ------------------------------------------------------------------ */
 /*  Schemas                                                           */
 /* ------------------------------------------------------------------ */
 
-const verifyBodySchema = z.object({
-  qrPayload: z.string().min(1),
-  deviceId: z.string().optional(),
-  scanMethod: z.enum(['qr', 'nfc', 'manual']).default('qr'),
-});
+const verifyBodySchema = z
+  .object({
+    qrPayload: z.string().min(1).optional(),
+    checkinCode: z.string().min(1).optional(),
+    deviceId: z.string().optional(),
+    scanMethod: z.enum(['qr', 'nfc', 'manual', 'code']).default('qr'),
+  })
+  .refine((b) => Boolean(b.qrPayload || b.checkinCode), {
+    message: 'Either qrPayload or checkinCode is required',
+  });
+
+async function assertCodeRateLimit(volunteerId: string): Promise<
+  | { ok: true }
+  | { error: string; status: number; code: string }
+> {
+  await connectRedis();
+  const key = `checkin:code:fail:${volunteerId}`;
+  const fails = Number((await redisClient.get(key)) ?? '0');
+  if (fails >= CODE_FAIL_LIMIT) {
+    return {
+      error: 'Too many invalid backup code attempts. Try again later.',
+      status: 429,
+      code: 'CODE_RATE_LIMITED',
+    };
+  }
+  return { ok: true };
+}
+
+async function recordCodeFailure(volunteerId: string): Promise<void> {
+  await connectRedis();
+  const key = `checkin:code:fail:${volunteerId}`;
+  const count = await redisClient.incr(key);
+  if (count === 1) {
+    await redisClient.expire(key, CODE_FAIL_WINDOW_SECONDS);
+  }
+}
+
+async function clearCodeFailures(volunteerId: string): Promise<void> {
+  await connectRedis();
+  await redisClient.del(`checkin:code:fail:${volunteerId}`);
+}
 
 /* ------------------------------------------------------------------ */
 /*  Core verification & check-in                                      */
@@ -57,32 +100,20 @@ export async function verifyAndCheckin(params: {
   if (!parsed.success) {
     return { error: 'Invalid request body', status: 400, code: 'VALIDATION_ERROR' };
   }
-  const { qrPayload, deviceId, scanMethod } = parsed.data;
+  const { qrPayload, checkinCode: rawCode, deviceId } = parsed.data;
+  let scanMethod = parsed.data.scanMethod;
 
-  /* ---- 1. Decode QR payload ---- */
-  let ticketId: string;
-  let ts: number;
-  let nonce: string;
-  let sig: string;
+  let ticketId = '';
+  let ts = 0;
+  let nonce = '';
+  let sig = '';
+  let ticket: NonNullable<Awaited<ReturnType<typeof findTicketForCheckin>>>;
 
-  try {
-    const decoded = JSON.parse(Buffer.from(qrPayload, 'base64').toString('utf-8'));
-    ticketId = decoded.tid;
-    ts = decoded.ts;
-    nonce = decoded.n;
-    sig = decoded.sig;
-    if (!ticketId || !ts || !nonce || !sig) throw new Error('missing fields');
-  } catch {
-    return { error: 'Malformed QR payload', status: 400, code: 'MALFORMED_QR' };
-  }
-
-  /* ---- Helper: log a failed check-in attempt ---- */
   const logFailure = async (
     eventId: string | null,
     code: string,
     reason: string
   ): Promise<{ result: VolunteerCheckinResult }> => {
-    // Best-effort log — we still have ticket context
     if (eventId) {
       try {
         const client = await pool.connect();
@@ -118,38 +149,76 @@ export async function verifyAndCheckin(params: {
     };
   };
 
-  /* ---- 2. Look up the ticket ---- */
-  const ticket = await findTicketForCheckin(ticketId);
-  if (!ticket) {
-    return logFailure(null, 'TICKET_NOT_FOUND', 'Ticket does not exist');
-  }
+  if (rawCode) {
+    scanMethod = 'code';
+    const rate = await assertCodeRateLimit(params.volunteerId);
+    if (!('ok' in rate)) {
+      return { error: rate.error, status: rate.status, code: rate.code };
+    }
 
-  /* ---- 3. Verify HMAC signature ---- */
-  const validSig = verifyQrSignature(ticketId, ts, nonce, sig, ticket.qr_secret);
-  if (!validSig) {
-    return logFailure(ticket.event_id, 'INVALID_SIGNATURE', 'QR code signature is invalid');
-  }
+    const code = normalizeCheckinCode(rawCode);
+    if (!isValidCheckinCodeFormat(code)) {
+      await recordCodeFailure(params.volunteerId);
+      return { error: 'Invalid backup code format', status: 400, code: 'INVALID_CODE_FORMAT' };
+    }
 
-  /* ---- 4. Verify nonce in Redis (atomic get+delete) ---- */
-  await connectRedis();
-  const nonceKey = `qr:nonce:${ticketId}:${nonce}`;
-  const nonceValue = await redisClient.getDel(nonceKey);
-  if (!nonceValue) {
-    return logFailure(
-      ticket.event_id,
-      'NONCE_EXPIRED',
-      'QR code has already been used or expired'
-    );
-  }
+    const found = await findTicketForCheckinByCode(code);
+    if (!found) {
+      await recordCodeFailure(params.volunteerId);
+      return { error: 'Backup code not found', status: 404, code: 'CODE_NOT_FOUND' };
+    }
+    ticket = found;
+    ticketId = found.id;
+    // Synthetic audit fields (no rotating QR nonce for backup-code path)
+    ts = Math.floor(Date.now() / 1000);
+    nonce = `code:${code}`;
+    sig = `backup-code:${code}`;
+  } else {
+    /* ---- 1. Decode QR payload ---- */
+    try {
+      const decoded = JSON.parse(Buffer.from(qrPayload!, 'base64').toString('utf-8'));
+      ticketId = decoded.tid;
+      ts = decoded.ts;
+      nonce = decoded.n;
+      sig = decoded.sig;
+      if (!ticketId || !ts || !nonce || !sig) throw new Error('missing fields');
+    } catch {
+      return { error: 'Malformed QR payload', status: 400, code: 'MALFORMED_QR' };
+    }
 
-  /* ---- 5. Validate timestamp ---- */
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  if (Math.abs(nowSeconds - ts) > QR_MAX_AGE_SECONDS) {
-    return logFailure(
-      ticket.event_id,
-      'QR_EXPIRED',
-      `QR code expired (generated ${Math.abs(nowSeconds - ts)}s ago, max ${QR_MAX_AGE_SECONDS}s)`
-    );
+    const found = await findTicketForCheckin(ticketId);
+    if (!found) {
+      return logFailure(null, 'TICKET_NOT_FOUND', 'Ticket does not exist');
+    }
+    ticket = found;
+
+    /* ---- 3. Verify HMAC signature ---- */
+    const validSig = verifyQrSignature(ticketId, ts, nonce, sig, ticket.qr_secret);
+    if (!validSig) {
+      return logFailure(ticket.event_id, 'INVALID_SIGNATURE', 'QR code signature is invalid');
+    }
+
+    /* ---- 4. Verify nonce in Redis (atomic get+delete) ---- */
+    await connectRedis();
+    const nonceKey = `qr:nonce:${ticketId}:${nonce}`;
+    const nonceValue = await redisClient.getDel(nonceKey);
+    if (!nonceValue) {
+      return logFailure(
+        ticket.event_id,
+        'NONCE_EXPIRED',
+        'QR code has already been used or expired'
+      );
+    }
+
+    /* ---- 5. Validate timestamp ---- */
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSeconds - ts) > QR_MAX_AGE_SECONDS) {
+      return logFailure(
+        ticket.event_id,
+        'QR_EXPIRED',
+        `QR code expired (generated ${Math.abs(nowSeconds - ts)}s ago, max ${QR_MAX_AGE_SECONDS}s)`
+      );
+    }
   }
 
   /* ---- 6. Verify ticket status ---- */
@@ -245,6 +314,10 @@ export async function verifyAndCheckin(params: {
     throw error;
   } finally {
     client.release();
+  }
+
+  if (scanMethod === 'code') {
+    await clearCodeFailures(params.volunteerId).catch(() => undefined);
   }
 
   let transactionHash: string | null = null;
