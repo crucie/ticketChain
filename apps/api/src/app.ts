@@ -21,6 +21,10 @@ import profileRoutes from './modules/profile/profile.routes.js';
 
 ensureJwtKeysExist();
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[api] unhandledRejection (process kept alive):', reason);
+});
+
 function resolveCorsOrigin(): cors.CorsOptions['origin'] {
   const configured = new Set<string>([env.FRONTEND_URL]);
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateJWT, requirePlatformAdmin } from '../../middleware/auth.js';
+import { asyncHandler } from '../../shared/utils/async-handler.js';
 import {
   createOrganisationHandler,
   deleteOrganisationHandler,
@@ -30,88 +31,132 @@ const router = Router();
 
 router.use(authenticateJWT, requirePlatformAdmin);
 
-router.get('/organisations', (req, res) => {
-  void listOrganisationsHandler(req, res);
-});
+router.get(
+  '/organisations',
+  asyncHandler(async (req, res) => {
+    await listOrganisationsHandler(req, res);
+  })
+);
 
-router.post('/organisations', (req, res) => {
-  void createOrganisationHandler(req, res);
-});
+router.post(
+  '/organisations',
+  asyncHandler(async (req, res) => {
+    await createOrganisationHandler(req, res);
+  })
+);
 
-router.get('/organisations/:orgId', (req, res) => {
-  void getOrganisationHandler(req, res);
-});
+router.get(
+  '/organisations/:orgId',
+  asyncHandler(async (req, res) => {
+    await getOrganisationHandler(req, res);
+  })
+);
 
-router.patch('/organisations/:orgId', (req, res) => {
-  void updateOrganisationHandler(req, res);
-});
+router.patch(
+  '/organisations/:orgId',
+  asyncHandler(async (req, res) => {
+    await updateOrganisationHandler(req, res);
+  })
+);
 
-router.delete('/organisations/:orgId', (req, res) => {
-  void deleteOrganisationHandler(req, res);
-});
+router.delete(
+  '/organisations/:orgId',
+  asyncHandler(async (req, res) => {
+    await deleteOrganisationHandler(req, res);
+  })
+);
 
-router.patch('/organisations/:orgId/status', (req, res) => {
-  void updateOrganisationStatusHandler(req, res);
-});
+router.patch(
+  '/organisations/:orgId/status',
+  asyncHandler(async (req, res) => {
+    await updateOrganisationStatusHandler(req, res);
+  })
+);
 
-router.patch('/organisations/:orgId/verify', (req, res) => {
-  void verifyOrganisationHandler(req, res);
-});
+router.patch(
+  '/organisations/:orgId/verify',
+  asyncHandler(async (req, res) => {
+    await verifyOrganisationHandler(req, res);
+  })
+);
 
-router.get('/kpis', (req, res) => {
-  void getKpisHandler(req, res);
-});
+router.get(
+  '/kpis',
+  asyncHandler(async (req, res) => {
+    await getKpisHandler(req, res);
+  })
+);
 
-router.get('/settlements', (req, res) => {
-  void listSettlementsHandler(req, res);
-});
+router.get(
+  '/settlements',
+  asyncHandler(async (req, res) => {
+    await listSettlementsHandler(req, res);
+  })
+);
 
-router.post('/settlements/:settlementId/approve', (req, res) => {
-  void approveSettlementHandler(req, res);
-});
+router.post(
+  '/settlements/:settlementId/approve',
+  asyncHandler(async (req, res) => {
+    await approveSettlementHandler(req, res);
+  })
+);
 
-router.get('/fraud', (req, res) => {
-  void listFraudHandler(req, res);
-});
+router.get(
+  '/fraud',
+  asyncHandler(async (req, res) => {
+    await listFraudHandler(req, res);
+  })
+);
 
-router.post('/fraud/blacklist', (req, res) => {
-  void blacklistHandler(req, res);
-});
+router.post(
+  '/fraud/blacklist',
+  asyncHandler(async (req, res) => {
+    await blacklistHandler(req, res);
+  })
+);
 
-router.get('/audit', (req, res) => {
-  void listAuditHandler(req, res);
-});
+router.get(
+  '/audit',
+  asyncHandler(async (req, res) => {
+    await listAuditHandler(req, res);
+  })
+);
 
-router.get('/events', (req, res) => {
-  void (async () => {
+router.get(
+  '/events',
+  asyncHandler(async (req, res) => {
     const result = await listPlatformEvents(req.query as Record<string, string | undefined>);
     res.json({ success: true, data: result.rows, meta: result.meta });
-  })();
-});
+  })
+);
 
-router.get('/tickets', (req, res) => {
-  void (async () => {
+router.get(
+  '/tickets',
+  asyncHandler(async (req, res) => {
     const result = await listPlatformTickets(req.query as Record<string, string | undefined>);
     res.json({ success: true, data: result.rows, meta: result.meta });
-  })();
-});
+  })
+);
 
-router.get('/admins', (req, res) => {
-  void (async () => {
+router.get(
+  '/admins',
+  asyncHandler(async (_req, res) => {
     const data = await listPlatformAdmins();
     res.json({ success: true, data });
-  })();
-});
+  })
+);
 
-router.get('/refunds', (req, res) => {
-  void (async () => {
+router.get(
+  '/refunds',
+  asyncHandler(async (_req, res) => {
     const data = await listPlatformRefunds();
     res.json({ success: true, data });
-  })();
-});
+  })
+);
 
-router.patch('/refunds/:refundId/review', (req, res) => {
-  void (async () => {
+router.patch(
+  '/refunds/:refundId/review',
+  asyncHandler(async (req, res) => {
     const { action } = req.body as { action?: 'approve' | 'reject' };
     if (!action) {
       res.status(400).json({ success: false, error: 'action required' });
@@ -127,14 +172,15 @@ router.patch('/refunds/:refundId/review', (req, res) => {
       return;
     }
     res.json({ success: true });
-  })();
-});
+  })
+);
 
-router.get('/blockchain/health', (req, res) => {
-  void (async () => {
+router.get(
+  '/blockchain/health',
+  asyncHandler(async (_req, res) => {
     const data = await getBlockchainHealth();
     res.json({ success: true, data });
-  })();
-});
+  })
+);
 
 export default router;
