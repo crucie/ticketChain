@@ -1,11 +1,15 @@
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { pool } from '../../shared/db/postgres.service.js';
-import { adminTransferOnChain } from '../../shared/blockchain/event-contract.service.js';
+import {
+  adminTransferOnChain,
+  getExplorerTxUrl,
+} from '../../shared/blockchain/event-contract.service.js';
 import { writeAuditLog } from '../../shared/audit/audit-log.service.js';
 import { isWalletBlacklisted } from '../../shared/fraud/fraud.service.js';
 import { findUserByEmail, findUserById, findUserByWallet } from '../auth/auth.repository.js';
 import { findTicketById } from './tickets.repository.js';
+import { env } from '../../config/env.js';
 
 const transferBodySchema = z.object({
   recipientEmailOrWallet: z.string().min(3),
@@ -15,7 +19,10 @@ export async function transferTicket(params: {
   userId: string;
   ticketId: string;
   body: unknown;
-}): Promise<{ success: true } | { error: string; status: number }> {
+}): Promise<
+  | { success: true; transactionHash: string | null; explorerUrl: string | null }
+  | { error: string; status: number; code?: string }
+> {
   const parsed = transferBodySchema.safeParse(params.body);
   if (!parsed.success) {
     return { error: 'Invalid transfer request', status: 400 };
@@ -59,6 +66,13 @@ export async function transferTicket(params: {
 
   let txHash: string | null = null;
   if (ticket.contractAddress) {
+    if (!env.MST_DEPLOYER_PRIVATE_KEY) {
+      return {
+        error: 'On-chain transfer unavailable: deployer key not configured',
+        status: 503,
+        code: 'CHAIN_TRANSFER_UNAVAILABLE',
+      };
+    }
     try {
       txHash = await adminTransferOnChain({
         contractAddress: ticket.contractAddress,
@@ -66,8 +80,13 @@ export async function transferTicket(params: {
         toWallet: recipient.wallet_address,
         tierIndex: ticket.tierIndex,
       });
-    } catch {
-      // Custodial DB transfer when chain unavailable
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'On-chain transfer failed';
+      return {
+        error: `On-chain transfer failed: ${message}`,
+        status: 502,
+        code: 'CHAIN_TRANSFER_FAILED',
+      };
     }
   }
 
@@ -116,8 +135,12 @@ export async function transferTicket(params: {
     entityType: 'ticket',
     entityId: params.ticketId,
     performedById: params.userId,
-    changes: { toUserId: recipient.id },
+    changes: { toUserId: recipient.id, transactionHash: txHash },
   });
 
-  return { success: true };
+  return {
+    success: true,
+    transactionHash: txHash,
+    explorerUrl: txHash ? getExplorerTxUrl(txHash) : null,
+  };
 }

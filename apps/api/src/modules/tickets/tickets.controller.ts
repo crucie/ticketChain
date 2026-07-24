@@ -118,11 +118,21 @@ export async function transferTicketHandler(req: Request, res: Response): Promis
   });
 
   if ('error' in result) {
-    res.status(result.status).json({ success: false, error: result.error });
+    res.status(result.status).json({
+      success: false,
+      error: result.error,
+      code: 'code' in result ? result.code : undefined,
+    });
     return;
   }
 
-  res.json({ success: true });
+  res.json({
+    success: true,
+    data: {
+      transactionHash: result.transactionHash,
+      explorerUrl: result.explorerUrl,
+    },
+  });
 }
 
 export async function resellTicketHandler(req: Request, res: Response): Promise<void> {
