@@ -307,9 +307,11 @@ export async function listMyTickets(): Promise<TicketSummary[]> {
   return parsed.data ?? [];
 }
 
-export async function getTicketQr(ticketId: string): Promise<{ payload: string; expiresIn: number }> {
+export async function getTicketQr(
+  ticketId: string
+): Promise<{ payload: string; expiresIn: number; checkinCode?: string }> {
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}/qr`, { credentials: 'include', cache: 'no-store' });
-  const parsed = await parseJson<{ payload: string; expiresIn: number }>(res);
+  const parsed = await parseJson<{ payload: string; expiresIn: number; checkinCode?: string }>(res);
   if (!parsed.ok || !parsed.data) {
     throw new Error(parsed.error ?? 'Failed to get QR payload');
   }
@@ -563,12 +565,33 @@ export async function getVolunteerEvents(): Promise<VolunteerEvent[]> {
   return parsed.data ?? [];
 }
 
-export async function verifyCheckin(qrPayload: string, deviceId: string): Promise<VerifyCheckinResult> {
+export async function verifyCheckin(
+  qrPayloadOrInput:
+    | string
+    | { qrPayload: string; deviceId: string }
+    | { checkinCode: string; deviceId: string },
+  deviceId?: string
+): Promise<VerifyCheckinResult> {
+  const body =
+    typeof qrPayloadOrInput === 'string'
+      ? { qrPayload: qrPayloadOrInput, deviceId: deviceId ?? '', scanMethod: 'qr' as const }
+      : 'checkinCode' in qrPayloadOrInput
+        ? {
+            checkinCode: qrPayloadOrInput.checkinCode,
+            deviceId: qrPayloadOrInput.deviceId,
+            scanMethod: 'code' as const,
+          }
+        : {
+            qrPayload: qrPayloadOrInput.qrPayload,
+            deviceId: qrPayloadOrInput.deviceId,
+            scanMethod: 'qr' as const,
+          };
+
   const res = await fetch(`${API_URL}/api/volunteer/checkin/verify`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ qrPayload, deviceId }),
+    body: JSON.stringify(body),
   });
   const parsed = await parseJson<VerifyCheckinResult>(res);
   if (!parsed.ok || !parsed.data) {

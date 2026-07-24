@@ -14,7 +14,9 @@ import {
   X,
   CheckCircle2,
   Clock,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react';
 import {
   getMe,
@@ -32,6 +34,12 @@ import { PublicListToolbar, FilterChip, ClearFiltersButton } from '@/components/
 
 type TicketStatusFilter = 'all' | 'valid' | 'used' | 'listed';
 
+function formatCheckinCode(code: string): string {
+  const normalized = code.replace(/[\s\-]/g, '').toUpperCase();
+  if (normalized.length !== 9) return normalized;
+  return `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}-${normalized.slice(6, 9)}`;
+}
+
 function sortTicketsByRecent(tickets: TicketSummary[]): TicketSummary[] {
   return [...tickets].sort(
     (a, b) => new Date(b.mintedAt).getTime() - new Date(a.mintedAt).getTime()
@@ -48,6 +56,8 @@ export default function MyTicketsPage() {
   // Selected ticket for modal details
   const [selectedTicket, setSelectedTicket] = useState<TicketSummary | null>(null);
   const [qrPayload, setQrPayload] = useState<string | null>(null);
+  const [checkinCode, setCheckinCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [qrTimeLeft, setQrTimeLeft] = useState(60);
   const [qrLoading, setQrLoading] = useState(false);
 
@@ -88,12 +98,14 @@ export default function MyTicketsPage() {
   const fetchQR = async (ticketId: string) => {
     setQrLoading(true);
     try {
-      const { payload, expiresIn } = await getTicketQr(ticketId);
+      const { payload, expiresIn, checkinCode: code } = await getTicketQr(ticketId);
       setQrPayload(payload);
+      setCheckinCode(code ?? null);
       setQrTimeLeft(expiresIn);
     } catch (err) {
       console.error(err);
       setQrPayload(null);
+      setCheckinCode(null);
     } finally {
       setQrLoading(false);
     }
@@ -103,6 +115,8 @@ export default function MyTicketsPage() {
   useEffect(() => {
     if (!selectedTicket) {
       setQrPayload(null);
+      setCheckinCode(null);
+      setCodeCopied(false);
       if (timerId) clearInterval(timerId);
       return;
     }
@@ -422,6 +436,41 @@ export default function MyTicketsPage() {
                             <Clock className="w-3.5 h-3.5 animate-pulse text-zinc-600" />
                             <span>ROTATING IN {qrTimeLeft}s</span>
                           </div>
+                          {checkinCode && (
+                            <div className="w-full max-w-[220px] space-y-1.5 pt-1">
+                              <p className="text-[10px] font-mono font-bold uppercase text-zinc-400 text-center tracking-wider">
+                                Backup gate code
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <code className="flex-1 text-center text-sm font-mono font-bold tracking-[0.2em] text-zinc-900 bg-white border border-zinc-200 rounded px-2 py-1.5">
+                                  {formatCheckinCode(checkinCode)}
+                                </code>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(formatCheckinCode(checkinCode));
+                                      setCodeCopied(true);
+                                      setTimeout(() => setCodeCopied(false), 1500);
+                                    } catch {
+                                      /* ignore */
+                                    }
+                                  }}
+                                  className="shrink-0 p-1.5 border border-zinc-200 rounded hover:bg-zinc-100 text-zinc-600"
+                                  aria-label="Copy backup code"
+                                >
+                                  {codeCopied ? (
+                                    <Check className="w-3.5 h-3.5 text-zinc-900" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                              <p className="text-[10px] text-zinc-400 font-mono text-center leading-relaxed">
+                                If the camera fails, read this code to the volunteer.
+                              </p>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="text-center space-y-1 py-12">
@@ -434,7 +483,7 @@ export default function MyTicketsPage() {
                     <div className="flex items-start space-x-2 text-[10px] text-zinc-400 font-mono leading-relaxed bg-zinc-50 p-2.5 rounded border border-zinc-100">
                       <QrCode className="w-4 h-4 shrink-0 mt-0.5" />
                       <p>
-                        This QR updates every 60 seconds. Screenshots or recordings will be flagged as EXPIRED at gate check-in.
+                        This QR updates every 60 seconds. The backup code stays the same until the ticket is transferred. Screenshots of the QR will be flagged as EXPIRED at gate check-in.
                       </p>
                     </div>
                   </div>
