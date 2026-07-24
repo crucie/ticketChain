@@ -96,4 +96,40 @@ describe('EventTickets1155', () => {
 
     expect(after - before).to.equal(ethers.parseEther('0.1'));
   });
+
+  it('should record check-in on-chain', async () => {
+    const [deployer] = await ethers.getSigners();
+    await contract.setTier(6, 10, ethers.parseEther('0.1'), true, 500);
+    await contract.adminMint(buyer.address, 6, 1);
+
+    const ticketIdHash = ethers.keccak256(ethers.toUtf8Bytes('ticket-uuid-001'));
+    const tx = await contract.checkInTicket(ticketIdHash, buyer.address, 6);
+    const receipt = await tx.wait();
+    const block = await ethers.provider.getBlock(receipt!.blockNumber);
+
+    await expect(tx)
+      .to.emit(contract, 'TicketCheckedIn')
+      .withArgs(ticketIdHash, buyer.address, 6, deployer.address, block!.timestamp);
+
+    expect(await contract.checkedIn(ticketIdHash)).to.equal(true);
+  });
+
+  it('should revert double check-in', async () => {
+    await contract.setTier(7, 10, ethers.parseEther('0.1'), true, 500);
+    await contract.adminMint(buyer.address, 7, 1);
+    const ticketIdHash = ethers.keccak256(ethers.toUtf8Bytes('ticket-uuid-002'));
+    await contract.checkInTicket(ticketIdHash, buyer.address, 7);
+    await expect(
+      contract.checkInTicket(ticketIdHash, buyer.address, 7)
+    ).to.be.revertedWithCustomError(contract, 'AlreadyCheckedIn');
+  });
+
+  it('should revert check-in from non-owner', async () => {
+    await contract.setTier(8, 10, ethers.parseEther('0.1'), true, 500);
+    await contract.adminMint(buyer.address, 8, 1);
+    const ticketIdHash = ethers.keccak256(ethers.toUtf8Bytes('ticket-uuid-003'));
+    await expect(
+      contract.connect(buyer).checkInTicket(ticketIdHash, buyer.address, 8)
+    ).to.be.revertedWithCustomError(contract, 'OwnableUnauthorizedAccount');
+  });
 });

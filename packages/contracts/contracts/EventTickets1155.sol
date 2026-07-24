@@ -24,9 +24,18 @@ contract EventTickets1155 is ERC1155, ERC2981, Ownable, ReentrancyGuard {
 
     mapping(uint256 tierId => TierConfig) private _tiers;
     mapping(uint256 tierId => uint256) public totalMinted;
+    /// @notice Off-chain ticket UUID hashed (keccak256) → gate attendance recorded on-chain
+    mapping(bytes32 ticketIdHash => bool) public checkedIn;
 
     event TicketMinted(address indexed to, uint256 indexed tierId, uint256 tokenId);
     event TicketTransferred(address indexed from, address indexed to, uint256 indexed tokenId);
+    event TicketCheckedIn(
+        bytes32 indexed ticketIdHash,
+        address indexed owner,
+        uint256 indexed tierId,
+        address scannedBy,
+        uint256 timestamp
+    );
     event TierPaused(uint256 indexed tierId);
     event TierUnpaused(uint256 indexed tierId);
     event TierConfigured(uint256 indexed tierId);
@@ -39,6 +48,9 @@ contract EventTickets1155 is ERC1155, ERC2981, Ownable, ReentrancyGuard {
     error InvalidPayment();
     error InvalidQuantity();
     error InvalidTier();
+    error AlreadyCheckedIn();
+    error InvalidTicketHash();
+    error InvalidOwner();
 
     constructor(
         address _royaltyReceiver,
@@ -108,6 +120,22 @@ contract EventTickets1155 is ERC1155, ERC2981, Ownable, ReentrancyGuard {
         uint256 quantity
     ) external onlyOwner nonReentrant {
         _safeTransferFrom(from, to, tierId, quantity, "");
+    }
+
+    /// @notice Record gate check-in on-chain. Gas paid by owner (platform deployer).
+    /// @dev Does not burn the NFT — attendance proof only. `ticketIdHash` is keccak256 of off-chain ticket UUID.
+    function checkInTicket(
+        bytes32 ticketIdHash,
+        address owner,
+        uint256 tierId
+    ) external onlyOwner {
+        if (ticketIdHash == bytes32(0)) revert InvalidTicketHash();
+        if (owner == address(0)) revert InvalidOwner();
+        _requireTier(tierId);
+        if (checkedIn[ticketIdHash]) revert AlreadyCheckedIn();
+
+        checkedIn[ticketIdHash] = true;
+        emit TicketCheckedIn(ticketIdHash, owner, tierId, msg.sender, block.timestamp);
     }
 
     function withdrawFunds(address to) external onlyOwner nonReentrant {
