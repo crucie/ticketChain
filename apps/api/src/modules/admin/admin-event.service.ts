@@ -45,6 +45,8 @@ const createEventSchema = z.object({
   venueName: z.string().max(255).optional(),
   city: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   zones: z.unknown().optional(),
   resaleEnabled: z.boolean().optional(),
   resalePriceCapBps: z.number().int().min(0).max(100000).optional(),
@@ -202,6 +204,8 @@ export async function adminUpdateEvent(orgId: string, eventId: string, body: unk
   if (data.venueName !== undefined) fields.venue_name = data.venueName;
   if (data.city !== undefined) fields.city = data.city;
   if (data.country !== undefined) fields.country = data.country;
+  if (data.latitude !== undefined) fields.latitude = data.latitude;
+  if (data.longitude !== undefined) fields.longitude = data.longitude;
   if (data.zones !== undefined) fields.zones = JSON.stringify(data.zones);
   if (data.resaleEnabled !== undefined) fields.resale_enabled = data.resaleEnabled;
   if (data.resalePriceCapBps !== undefined) fields.resale_price_cap_bps = data.resalePriceCapBps;

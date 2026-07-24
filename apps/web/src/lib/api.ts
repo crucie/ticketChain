@@ -793,6 +793,9 @@ export async function createAdminEvent(body: {
   eventEndDate?: string;
   venueName: string;
   city: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
   category: string;
   ageRestriction?: number;
   tags?: string[];

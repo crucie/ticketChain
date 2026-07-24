@@ -284,6 +284,8 @@ export async function createEvent(params: {
   venueName?: string;
   city?: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
   zones?: unknown;
   resaleEnabled?: boolean;
   resalePriceCapBps?: number;
@@ -293,9 +295,10 @@ export async function createEvent(params: {
   const result = await pool.query<EventRow>(
     `INSERT INTO events (
        org_id, created_by_id, name, description, category, tags, age_restriction,
-       event_date, event_end_date, venue_id, venue_name, city, country, zones,
+       event_date, event_end_date, venue_id, venue_name, city, country,
+       latitude, longitude, zones,
        resale_enabled, resale_price_cap_bps, resale_royalty_bps, chain_id
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING ${EVENT_SELECT}`,
     [
       params.orgId,
@@ -311,6 +314,8 @@ export async function createEvent(params: {
       params.venueName ?? null,
       params.city ?? null,
       params.country ?? null,
+      params.latitude ?? null,
+      params.longitude ?? null,
       params.zones ? JSON.stringify(params.zones) : null,
       params.resaleEnabled ?? false,
       params.resalePriceCapBps ?? null,

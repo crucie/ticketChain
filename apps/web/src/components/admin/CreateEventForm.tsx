@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { createAdminEvent, uploadAdminEventBanner } from '@/lib/api';
+import { LocationMapPicker } from '@/components/admin/LocationMapPicker';
 
 const labelTiny = 'text-[10px] font-mono uppercase tracking-wider text-silver';
 const inputLarge =
@@ -80,6 +81,9 @@ export function CreateEventForm({ onClose }: CreateEventFormProps) {
   const [endTime, setEndTime] = useState('');
   const [venueName, setVenueName] = useState('');
   const [city, setCity] = useState('');
+  const [country, setCountry] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [category, setCategory] = useState('Minimal');
   const [ageRestriction, setAgeRestriction] = useState('');
   const [tags, setTags] = useState('');
@@ -169,6 +173,9 @@ export function CreateEventForm({ onClose }: CreateEventFormProps) {
         eventEndDate: endIso,
         venueName: venueName.trim(),
         city: city.trim(),
+        country: country.trim() || undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
         category: category === 'Minimal' ? '' : category,
         ageRestriction: ageNum,
         tags: tags.trim() ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
@@ -362,7 +369,7 @@ export function CreateEventForm({ onClose }: CreateEventFormProps) {
             </div>
 
             {/* Location */}
-            <div className="rounded-xl border border-mist px-4 py-3">
+            <div className="rounded-xl border border-mist px-4 py-3 space-y-3">
               <div className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 text-silver mt-1 shrink-0" aria-hidden />
                 <div className="flex-1 space-y-2 min-w-0">
@@ -386,6 +393,17 @@ export function CreateEventForm({ onClose }: CreateEventFormProps) {
                   />
                 </div>
               </div>
+              <LocationMapPicker
+                latitude={latitude}
+                longitude={longitude}
+                onPick={(loc) => {
+                  setVenueName(loc.venueName);
+                  if (loc.city) setCity(loc.city);
+                  setCountry(loc.country);
+                  setLatitude(loc.latitude);
+                  setLongitude(loc.longitude);
+                }}
+              />
             </div>
 
             {/* Description */}
