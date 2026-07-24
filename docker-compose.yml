@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: ticketchain_user
       POSTGRES_PASSWORD: dev_password
     ports:
-      - '15432:5432'
+      # Host 25432 avoids clashing with other local Postgres / sibling projects
+      - '25432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +19,8 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - '6379:6379'
+      # Host 16379 avoids clashing with other local Redis (6379 often taken)
+      - '16379:6379'
     volumes:
       - redis_data:/data
     healthcheck:

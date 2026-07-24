@@ -7,7 +7,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_SIZE: z.coerce.number().default(10),
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_URL: z.string().default('redis://localhost:16379'),
   MST_RPC_URL: z.string().url().default('https://testnetrpc.mstblockchain.com'),
   MST_CHAIN_ID: z.coerce.number().default(4545),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),

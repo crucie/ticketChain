@@ -40,8 +40,8 @@ Health: http://localhost:5000/health
 
 | Service  | Host port | Notes                          |
 |----------|-----------|--------------------------------|
-| Postgres | **15432** | Avoids conflict with local PG  |
-| Redis    | 6379      |                                |
+| Postgres | **25432** | Avoids conflict with local PG  |
+| Redis    | **16379** | Avoids conflict with local Redis |
 
 ## Seed data (dev)
 
