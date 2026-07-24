@@ -11,6 +11,8 @@ export interface TicketSummary {
   contractAddress: string;
   status: TicketStatus;
   mintedAt: string;
+  /** 9-char gate backup code (owner-facing). */
+  checkinCode?: string;
 }
 
 export interface TicketDetail extends TicketSummary {
@@ -31,4 +33,5 @@ export interface MintTicketResponse {
 export interface QrPayloadResponse {
   payload: string;
   expiresIn: number;
+  checkinCode?: string;
 }

@@ -4,6 +4,7 @@ import { pool } from '../../shared/db/postgres.service.js';
 import { connectRedis, redisClient } from '../../shared/cache/redis.service.js';
 import { mintTicketOnChain } from '../../shared/blockchain/event-contract.service.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
+import { generateCheckinCodes } from '../../shared/utils/checkin-code.js';
 import { findUserById } from '../auth/auth.repository.js';
 import {
   confirmIdempotency,
@@ -178,6 +179,7 @@ export async function mintTickets(params: {
     });
 
     const qrSecrets = generateQrSecrets(quantity);
+    const checkinCodes = generateCheckinCodes(quantity);
     const writeClient = await pool.connect();
     try {
       await writeClient.query('BEGIN');
@@ -193,6 +195,7 @@ export async function mintTickets(params: {
         transactionHash: txHash,
         quantity,
         qrSecrets,
+        checkinCodes,
       });
 
       await incrementTierMinted(writeClient, tierId, quantity);
@@ -249,7 +252,7 @@ export async function generateTicketQr(userId: string, ticketId: string) {
     'base64'
   );
 
-  return { payload, expiresIn: QR_REFRESH_SECONDS };
+  return { payload, expiresIn: QR_REFRESH_SECONDS, checkinCode: ticket.checkinCode };
 }
 
 export function verifyQrSignature(

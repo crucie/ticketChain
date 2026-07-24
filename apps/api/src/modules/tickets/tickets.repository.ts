@@ -14,6 +14,7 @@ interface TicketRow {
   transaction_hash: string;
   minted_at: Date;
   qr_secret: string;
+  checkin_code: string;
   status: string;
   used_at: Date | null;
   seat_number: string | null;
@@ -44,7 +45,7 @@ interface EventLockRow {
 
 const TICKET_SELECT = `
   id, event_id, tier_id, tier_index, owner_user_id, owner_wallet_address,
-  token_id, contract_address, transaction_hash, minted_at, qr_secret, status,
+  token_id, contract_address, transaction_hash, minted_at, qr_secret, checkin_code, status,
   used_at, seat_number, promo_code_used, discount_applied_bps, created_at
 `;
 
@@ -59,6 +60,7 @@ function mapTicketSummary(row: TicketRow): TicketSummary {
     contractAddress: row.contract_address,
     status: row.status as TicketSummary['status'],
     mintedAt: row.minted_at.toISOString(),
+    checkinCode: row.checkin_code,
   };
 }
 
@@ -209,6 +211,7 @@ export async function createTickets(
     transactionHash: string;
     quantity: number;
     qrSecrets: string[];
+    checkinCodes: string[];
   }
 ): Promise<TicketSummary[]> {
   const tickets: TicketSummary[] = [];
@@ -216,8 +219,8 @@ export async function createTickets(
     const result = await client.query<TicketRow>(
       `INSERT INTO tickets (
          event_id, tier_id, tier_index, owner_user_id, owner_wallet_address,
-         token_id, contract_address, transaction_hash, qr_secret
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         token_id, contract_address, transaction_hash, qr_secret, checkin_code
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING ${TICKET_SELECT}`,
       [
         params.eventId,
@@ -229,6 +232,7 @@ export async function createTickets(
         params.contractAddress.toLowerCase(),
         params.transactionHash,
         params.qrSecrets[i],
+        params.checkinCodes[i],
       ]
     );
     tickets.push(mapTicketSummary(result.rows[0]));
@@ -303,5 +307,9 @@ export async function findTicketById(
   );
   const row = result.rows[0];
   if (!row) return null;
-  return { ...mapTicketDetail(row), qrSecret: row.qr_secret };
+  return {
+    ...mapTicketDetail(row),
+    qrSecret: row.qr_secret,
+    checkinCode: row.checkin_code,
+  };
 }

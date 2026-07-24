@@ -7,6 +7,7 @@ import {
 } from '../../shared/blockchain/event-contract.service.js';
 import { writeAuditLog } from '../../shared/audit/audit-log.service.js';
 import { isWalletBlacklisted } from '../../shared/fraud/fraud.service.js';
+import { generateCheckinCode } from '../../shared/utils/checkin-code.js';
 import { findUserByEmail, findUserById, findUserByWallet } from '../auth/auth.repository.js';
 import { findTicketById } from './tickets.repository.js';
 import { env } from '../../config/env.js';
@@ -91,6 +92,7 @@ export async function transferTicket(params: {
   }
 
   const newQrSecret = randomBytes(32).toString('hex');
+  const newCheckinCode = generateCheckinCode();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -100,10 +102,11 @@ export async function transferTicket(params: {
          owner_user_id = $1,
          owner_wallet_address = $2,
          qr_secret = $3,
+         checkin_code = $4,
          status = 'valid',
          updated_at = NOW()
-       WHERE id = $4`,
-      [recipient.id, recipient.wallet_address.toLowerCase(), newQrSecret, params.ticketId]
+       WHERE id = $5`,
+      [recipient.id, recipient.wallet_address.toLowerCase(), newQrSecret, newCheckinCode, params.ticketId]
     );
 
     await client.query(

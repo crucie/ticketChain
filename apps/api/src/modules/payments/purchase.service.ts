@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../shared/db/postgres.service.js';
 import { connectRedis, redisClient } from '../../shared/cache/redis.service.js';
 import { adminMintOnChain } from '../../shared/blockchain/event-contract.service.js';
+import { generateCheckinCodes } from '../../shared/utils/checkin-code.js';
 import { findUserById } from '../auth/auth.repository.js';
 import {
   confirmIdempotency,
@@ -202,6 +203,7 @@ export async function fulfillLazyMint(params: {
     });
 
     const qrSecrets = generateQrSecrets(params.quantity);
+    const checkinCodes = generateCheckinCodes(params.quantity);
     const writeClient = await pool.connect();
     try {
       await writeClient.query('BEGIN');
@@ -217,6 +219,7 @@ export async function fulfillLazyMint(params: {
         transactionHash: txHash,
         quantity: params.quantity,
         qrSecrets,
+        checkinCodes,
       });
 
       await incrementTierMinted(writeClient, params.tierId, params.quantity);
