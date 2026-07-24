@@ -31,6 +31,7 @@ import {
 } from '@/lib/api';
 import Navbar from '@/components/layout/Navbar';
 import { fetchAndCacheSnapshot } from '@/lib/offline-checkin';
+import { ContractExplorerLink } from '@/components/blockchain/ContractExplorerLink';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
@@ -61,6 +62,9 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
       ownerWalletAddress: string;
       zone: string;
     };
+    chainStatus?: 'pending' | 'confirmed' | 'failed' | null;
+    transactionHash?: string | null;
+    explorerUrl?: string | null;
   } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -225,7 +229,10 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
           setScanResult({
             show: true,
             success: true,
-            details: result.ticket
+            details: result.ticket,
+            chainStatus: result.chainStatus ?? null,
+            transactionHash: result.transactionHash ?? null,
+            explorerUrl: result.explorerUrl ?? null,
           });
         }
       } else {
@@ -584,8 +591,34 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
                       {scanResult.details && (
                         <div className="space-y-1 bg-zinc-50 border border-zinc-200 rounded p-4 text-xs font-mono text-zinc-700 inline-block w-full">
                           <p className="font-bold">Ticket #{scanResult.details.tokenId}</p>
-                          <p>ZONE ACCESS: {scanResult.details.zone.toUpperCase()}</p>
+                          <p>ZONE ACCESS: {scanResult.details.zone.toUpperCase() || 'ALL'}</p>
                           <p className="text-[10px] text-zinc-400 truncate">Wallet: {scanResult.details.ownerWalletAddress}</p>
+                          <div className="pt-2 border-t border-zinc-200 mt-2 space-y-1">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">
+                              Chain:{' '}
+                              <span className="text-zinc-800 font-semibold">
+                                {scanResult.chainStatus === 'confirmed'
+                                  ? 'Confirmed'
+                                  : scanResult.chainStatus === 'pending'
+                                    ? 'Pending'
+                                    : scanResult.transactionHash
+                                      ? 'Submitted'
+                                      : 'Off-chain only'}
+                              </span>
+                            </p>
+                            {scanResult.transactionHash && (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="text-[10px] text-zinc-500 truncate max-w-[140px]">
+                                  {scanResult.transactionHash.slice(0, 10)}…
+                                </span>
+                                <ContractExplorerLink
+                                  value={scanResult.transactionHash}
+                                  type="tx"
+                                  title="View check-in transaction"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

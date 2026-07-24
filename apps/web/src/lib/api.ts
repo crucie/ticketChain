@@ -316,17 +316,21 @@ export async function getTicketQr(ticketId: string): Promise<{ payload: string; 
   return parsed.data;
 }
 
-export async function transferTicket(ticketId: string, recipient: string): Promise<void> {
+export async function transferTicket(
+  ticketId: string,
+  recipient: string
+): Promise<{ transactionHash: string | null; explorerUrl: string | null }> {
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}/transfer`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recipientEmailOrWallet: recipient }),
   });
-  const parsed = await parseJson<void>(res);
+  const parsed = await parseJson<{ transactionHash: string | null; explorerUrl: string | null }>(res);
   if (!parsed.ok) {
     throw new Error(parsed.error ?? 'Transfer failed');
   }
+  return parsed.data ?? { transactionHash: null, explorerUrl: null };
 }
 
 export async function listTicketForResale(ticketId: string, askPriceWei: string): Promise<void> {
@@ -513,12 +517,26 @@ export interface VolunteerEvent {
 export interface VerifyCheckinResult {
   success: boolean;
   reason?: string;
+  failureReason?: string;
+  failureCode?: string;
+  transactionHash?: string | null;
+  chainStatus?: 'pending' | 'confirmed' | 'failed' | null;
+  explorerUrl?: string | null;
+  /** Normalized ticket details (mapped from API `attendee`) */
   ticket?: {
     id: string;
     tokenId: number;
     ownerWalletAddress: string;
     zone: string;
   };
+  attendee?: {
+    walletAddress: string;
+    ticketTier: string;
+    zone: string | null;
+    seatNumber: string | null;
+    tokenId: number;
+  };
+  ticketId?: string;
 }
 
 export interface CheckinStats {
@@ -534,6 +552,8 @@ export interface CheckinHistoryItem {
   zoneAccessed: string;
   verificationSuccess: boolean;
   failureReason: string | null;
+  transactionHash?: string | null;
+  chainStatus?: string | null;
   createdAt: string;
 }
 
@@ -554,7 +574,20 @@ export async function verifyCheckin(qrPayload: string, deviceId: string): Promis
   if (!parsed.ok || !parsed.data) {
     throw new Error(parsed.error ?? 'Verification failed');
   }
-  return parsed.data;
+  const data = parsed.data;
+  // Normalize API attendee shape → UI ticket shape
+  if (data.success && !data.ticket && data.attendee) {
+    data.ticket = {
+      id: data.ticketId ?? '',
+      tokenId: data.attendee.tokenId,
+      ownerWalletAddress: data.attendee.walletAddress,
+      zone: data.attendee.zone ?? '',
+    };
+  }
+  if (!data.success && !data.reason) {
+    data.reason = data.failureReason ?? data.failureCode ?? 'Verification failed';
+  }
+  return data;
 }
 
 export async function getCheckinStats(eventId: string): Promise<CheckinStats> {
@@ -1287,10 +1320,21 @@ export async function getEventCheckinsAdmin(eventId: string): Promise<Array<{
   zoneAccessed: string | null;
   scanMethod: string;
   success: boolean;
+  transactionHash?: string | null;
+  chainStatus?: string | null;
   createdAt: string;
 }>> {
   const res = await fetch(`${API_URL}/api/admin/events/${eventId}/checkins`, { credentials: 'include', cache: 'no-store' });
-  const parsed = await parseJson<Array<{ id: string; ticketId: string; zoneAccessed: string | null; scanMethod: string; success: boolean; createdAt: string }>>(res);
+  const parsed = await parseJson<Array<{
+    id: string;
+    ticketId: string;
+    zoneAccessed: string | null;
+    scanMethod: string;
+    success: boolean;
+    transactionHash?: string | null;
+    chainStatus?: string | null;
+    createdAt: string;
+  }>>(res);
   return parsed.data ?? [];
 }
 

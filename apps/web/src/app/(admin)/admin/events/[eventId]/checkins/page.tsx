@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
 import { getMe, getAdminEvent, getEventCheckinsAdmin, getEventAnalytics, type AuthUser } from '@/lib/api';
 import Sidebar from '@/components/layout/Sidebar';
 import EventSubNav from '@/components/admin/EventSubNav';
+import { ContractExplorerLink } from '@/components/blockchain/ContractExplorerLink';
 
 export default function EventCheckinsPage({ params }: { params: { eventId: string } }) {
   const eventId = params.eventId;
@@ -16,6 +17,8 @@ export default function EventCheckinsPage({ params }: { params: { eventId: strin
     zoneAccessed: string | null;
     scanMethod: string;
     success: boolean;
+    transactionHash?: string | null;
+    chainStatus?: string | null;
     createdAt: string;
   }>>([]);
   const [liveCount, setLiveCount] = useState({ checkedIn: 0, sold: 0 });
@@ -102,12 +105,13 @@ export default function EventCheckinsPage({ params }: { params: { eventId: strin
                       <th className="text-left px-4 py-2">Zone</th>
                       <th className="text-left px-4 py-2">Method</th>
                       <th className="text-left px-4 py-2">Result</th>
+                      <th className="text-left px-4 py-2">Tx</th>
                     </tr>
                   </thead>
                   <tbody>
                     {checkins.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-12 text-center text-zinc-400">No check-ins yet.</td>
+                        <td colSpan={6} className="px-4 py-12 text-center text-zinc-400">No check-ins yet.</td>
                       </tr>
                     ) : (
                       checkins.map((c) => (
@@ -120,6 +124,22 @@ export default function EventCheckinsPage({ params }: { params: { eventId: strin
                             <span className={c.success ? 'text-green-700' : 'text-red-600'}>
                               {c.success ? 'ADMIT' : 'DENY'}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {c.transactionHash ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-zinc-500">
+                                  {c.chainStatus === 'confirmed' ? '✓' : c.chainStatus ?? 'tx'}
+                                </span>
+                                <ContractExplorerLink value={c.transactionHash} type="tx" />
+                              </div>
+                            ) : c.success ? (
+                              <span className="text-zinc-400">
+                                {c.chainStatus === 'pending' ? 'Pending' : '—'}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-300">—</span>
+                            )}
                           </td>
                         </tr>
                       ))

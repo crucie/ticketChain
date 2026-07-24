@@ -56,6 +56,7 @@ export default function MyTicketsPage() {
   const [askPrice, setAskPrice] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [transferTxHash, setTransferTxHash] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -136,6 +137,7 @@ export default function MyTicketsPage() {
 
   const handleCloseTicket = () => {
     setSelectedTicket(null);
+    setTransferTxHash(null);
     if (timerId) clearInterval(timerId);
   };
 
@@ -144,13 +146,19 @@ export default function MyTicketsPage() {
     setActionLoading(true);
     setActionError(null);
     setActionSuccess(null);
+    setTransferTxHash(null);
     try {
-      await transferTicket(selectedTicket.id, recipient.trim());
-      setActionSuccess('Ticket transferred successfully.');
+      const result = await transferTicket(selectedTicket.id, recipient.trim());
+      setTransferTxHash(result.transactionHash);
+      setActionSuccess(
+        result.transactionHash
+          ? 'Ticket transferred on-chain successfully.'
+          : 'Ticket transferred successfully.'
+      );
       setTimeout(() => {
         handleCloseTicket();
         void fetchTickets();
-      }, 2000);
+      }, 3500);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Transfer failed');
     } finally {
@@ -537,9 +545,17 @@ export default function MyTicketsPage() {
 
                 {/* Form status reports */}
                 {actionSuccess && (
-                  <div className="flex items-center space-x-2 bg-zinc-100 text-zinc-800 px-3 py-2 rounded text-xs border border-zinc-200 font-mono">
-                    <CheckCircle2 className="w-4 h-4 text-zinc-800 shrink-0" />
-                    <span>{actionSuccess}</span>
+                  <div className="flex flex-col gap-1.5 bg-zinc-100 text-zinc-800 px-3 py-2 rounded text-xs border border-zinc-200 font-mono">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-zinc-800 shrink-0" />
+                      <span>{actionSuccess}</span>
+                    </div>
+                    {transferTxHash && (
+                      <div className="flex items-center gap-1.5 pl-6">
+                        <span className="text-zinc-500 truncate">{transferTxHash.slice(0, 14)}…</span>
+                        <ContractExplorerLink value={transferTxHash} type="tx" title="View transfer transaction" />
+                      </div>
+                    )}
                   </div>
                 )}
 
