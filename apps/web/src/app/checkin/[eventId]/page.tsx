@@ -47,8 +47,9 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
   const [activeZone, setActiveZone] = useState<string>('ALL');
 
   // Scanner status
-  const [selectedMethod, setSelectedMethod] = useState<'camera' | 'manual'>('camera');
+  const [selectedMethod, setSelectedMethod] = useState<'camera' | 'manual' | 'code'>('camera');
   const [manualPayload, setManualPayload] = useState('');
+  const [backupCode, setBackupCode] = useState('');
   const [verifyLoading, setVerifyLoading] = useState(false);
 
   // Verification results overlay
@@ -214,8 +215,10 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
     if (!payload.trim()) return;
     setVerifyLoading(true);
     try {
-      // Calls standard verification endpoint: POST /api/volunteer/checkin/verify
-      const result = await verifyCheckin(payload, 'PWA_SCANNER_DEVICE_01');
+      const result = await verifyCheckin({
+        qrPayload: payload,
+        deviceId: 'PWA_SCANNER_DEVICE_01',
+      });
 
       if (result.success && result.ticket) {
         // Zone filtering check on client side for quick feedback
@@ -252,6 +255,53 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
     } finally {
       setVerifyLoading(false);
       setManualPayload('');
+    }
+  };
+
+  const handleBackupCodeSubmit = async () => {
+    const code = backupCode.trim();
+    if (!code) return;
+    setVerifyLoading(true);
+    try {
+      const result = await verifyCheckin({
+        checkinCode: code,
+        deviceId: 'PWA_SCANNER_DEVICE_01',
+      });
+
+      if (result.success && result.ticket) {
+        if (activeZone !== 'ALL' && result.ticket.zone !== activeZone) {
+          setScanResult({
+            show: true,
+            success: false,
+            reason: `WRONG_ZONE: Ticket is configured for ${result.ticket.zone} but this gate is scanning ${activeZone}.`,
+          });
+        } else {
+          setScanResult({
+            show: true,
+            success: true,
+            details: result.ticket,
+            chainStatus: result.chainStatus ?? null,
+            transactionHash: result.transactionHash ?? null,
+            explorerUrl: result.explorerUrl ?? null,
+          });
+        }
+      } else {
+        setScanResult({
+          show: true,
+          success: false,
+          reason: result.reason ?? 'Verification failed',
+        });
+      }
+      void fetchStatsAndHistory();
+    } catch (err) {
+      setScanResult({
+        show: true,
+        success: false,
+        reason: err instanceof Error ? err.message : 'Unknown scan error',
+      });
+    } finally {
+      setVerifyLoading(false);
+      setBackupCode('');
     }
   };
 
@@ -359,7 +409,17 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
                           : 'text-zinc-500 hover:text-zinc-950'
                       }`}
                     >
-                      Camera Scanner
+                      Camera
+                    </button>
+                    <button
+                      onClick={() => setSelectedMethod('code')}
+                      className={`flex-1 py-2 text-xs font-mono font-bold uppercase rounded transition-colors ${
+                        selectedMethod === 'code'
+                          ? 'bg-white text-zinc-950 border border-zinc-200'
+                          : 'text-zinc-500 hover:text-zinc-950'
+                      }`}
+                    >
+                      Backup Code
                     </button>
                     <button
                       onClick={() => setSelectedMethod('manual')}
@@ -369,7 +429,7 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
                           : 'text-zinc-500 hover:text-zinc-950'
                       }`}
                     >
-                      Manual Input
+                      Paste QR
                     </button>
                   </div>
 
@@ -454,6 +514,40 @@ export default function CheckinConsolePage({ params }: { params: { eventId: stri
                             </button>
                           </div>
                         </div>
+                      </div>
+                    ) : selectedMethod === 'code' ? (
+                      <div className="w-full max-w-sm space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-mono font-bold uppercase text-zinc-400">
+                            9-character backup code
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="text"
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={backupCode}
+                            onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleBackupCodeSubmit();
+                            }}
+                            placeholder="XXX-XXX-XXX"
+                            maxLength={11}
+                            className="w-full px-3 py-3 border border-zinc-200 rounded text-center text-lg font-mono font-bold tracking-[0.25em] focus:outline-none focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 bg-white placeholder-zinc-300"
+                          />
+                          <p className="text-[10px] font-mono text-zinc-400 leading-relaxed">
+                            Attendee reads the code under their QR when the camera cannot scan.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!backupCode.trim() || verifyLoading}
+                          onClick={() => void handleBackupCodeSubmit()}
+                          className="w-full py-2 bg-zinc-900 text-white hover:bg-zinc-800 rounded text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
+                        >
+                          Check in with code
+                        </button>
                       </div>
                     ) : (
                       <div className="w-full max-w-sm space-y-4">
