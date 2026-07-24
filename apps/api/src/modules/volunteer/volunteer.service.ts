@@ -5,6 +5,11 @@ import { connectRedis, redisClient } from '../../shared/cache/redis.service.js';
 import { verifyQrSignature } from '../tickets/tickets.service.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import {
+  checkInTicketOnChain,
+  getExplorerTxUrl,
+} from '../../shared/blockchain/event-contract.service.js';
+import { getMaintenanceQueue, JOB_NAMES } from '../../shared/queue/queue.service.js';
+import {
   findVolunteerAssignment,
   findVolunteerAssignments,
   findVolunteerEventDetail,
@@ -12,11 +17,13 @@ import {
   insertCheckin,
   markTicketUsed,
   incrementCheckedIn,
+  updateCheckinChainTx,
   getCheckinStats as repoGetCheckinStats,
   getCheckinHistory as repoGetCheckinHistory,
   getValidTicketIds,
 } from './volunteer.repository.js';
 import type { VolunteerCheckinResult } from '@ticketchain/shared';
+import { env } from '../../config/env.js';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -188,11 +195,12 @@ export async function verifyAndCheckin(params: {
 
   /* ---- 9. Atomic check-in (DB transaction) ---- */
   const client = await pool.connect();
+  let checkinId: string;
   try {
     await client.query('BEGIN');
 
     // Insert check-in log (unique index prevents double-entry)
-    const checkinId = await insertCheckin(client, {
+    checkinId = await insertCheckin(client, {
       eventId: ticket.event_id,
       ticketId,
       checkedInById: params.volunteerId,
@@ -221,39 +229,6 @@ export async function verifyAndCheckin(params: {
     await incrementCheckedIn(client, ticket.event_id);
 
     await client.query('COMMIT');
-
-    /* ---- 10. Publish real-time event via Redis ---- */
-    try {
-      await redisClient.publish(
-        `checkin:live:${ticket.event_id}`,
-        JSON.stringify({
-          checkinId,
-          ticketId,
-          zone: ticketZone,
-          tier: ticket.tier_name,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    } catch {
-      // non-critical — don't fail the check-in
-    }
-
-    return {
-      result: {
-        success: true,
-        ticketId,
-        eventId: ticket.event_id,
-        checkinId,
-        attendee: {
-          walletAddress: ticket.owner_wallet_address,
-          ticketTier: ticket.tier_name,
-          zone: ticketZone,
-          seatNumber: ticket.seat_number,
-          tokenId: ticket.token_id,
-        },
-        checkedInAt: new Date().toISOString(),
-      },
-    };
   } catch (error) {
     await client.query('ROLLBACK');
 
@@ -271,6 +246,87 @@ export async function verifyAndCheckin(params: {
   } finally {
     client.release();
   }
+
+  let transactionHash: string | null = null;
+  let chainStatus: VolunteerCheckinResult['chainStatus'] = null;
+  let explorerUrl: string | null = null;
+
+  if (ticket.contract_address && env.MST_DEPLOYER_PRIVATE_KEY) {
+    try {
+      transactionHash = await checkInTicketOnChain({
+        contractAddress: ticket.contract_address,
+        ticketId,
+        ownerWallet: ticket.owner_wallet_address,
+        tierIndex: ticket.tier_index,
+      });
+      chainStatus = 'confirmed';
+      explorerUrl = getExplorerTxUrl(transactionHash);
+      await updateCheckinChainTx({
+        checkinId,
+        transactionHash,
+        chainStatus: 'confirmed',
+      });
+    } catch (err) {
+      console.error('[checkin] on-chain record failed, queuing retry:', err);
+      chainStatus = 'pending';
+      await updateCheckinChainTx({
+        checkinId,
+        transactionHash: null,
+        chainStatus: 'pending',
+      });
+      try {
+        await getMaintenanceQueue().add(
+          JOB_NAMES.CHECKIN_CHAIN_CONFIRM,
+          { checkinId },
+          {
+            attempts: 8,
+            backoff: { type: 'exponential', delay: 15_000 },
+            removeOnComplete: 100,
+            removeOnFail: 50,
+          }
+        );
+      } catch (queueErr) {
+        console.error('[checkin] failed to enqueue chain retry:', queueErr);
+      }
+    }
+  }
+
+  /* ---- 10. Publish real-time event via Redis ---- */
+  try {
+    await redisClient.publish(
+      `checkin:live:${ticket.event_id}`,
+      JSON.stringify({
+        checkinId,
+        ticketId,
+        zone: ticketZone,
+        tier: ticket.tier_name,
+        transactionHash,
+        timestamp: new Date().toISOString(),
+      })
+    );
+  } catch {
+    // non-critical — don't fail the check-in
+  }
+
+  return {
+    result: {
+      success: true,
+      ticketId,
+      eventId: ticket.event_id,
+      checkinId,
+      transactionHash,
+      chainStatus,
+      explorerUrl,
+      attendee: {
+        walletAddress: ticket.owner_wallet_address,
+        ticketTier: ticket.tier_name,
+        zone: ticketZone,
+        seatNumber: ticket.seat_number,
+        tokenId: ticket.token_id,
+      },
+      checkedInAt: new Date().toISOString(),
+    },
+  };
 }
 
 /* ------------------------------------------------------------------ */

@@ -5,6 +5,9 @@ export interface VolunteerCheckinResult {
   checkinId?: string;
   failureCode?: string;
   failureReason?: string;
+  transactionHash?: string | null;
+  chainStatus?: 'pending' | 'confirmed' | 'failed' | null;
+  explorerUrl?: string | null;
   attendee?: {
     walletAddress: string;
     ticketTier: string;
@@ -31,6 +34,8 @@ export interface VolunteerCheckinHistoryItem {
   scanMethod: string;
   verificationSuccess: boolean;
   failureReason: string | null;
+  transactionHash?: string | null;
+  chainStatus?: string | null;
   createdAt: string;
 }
 

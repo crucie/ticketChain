@@ -28,7 +28,7 @@ interface TicketCheckinRow {
   owner_user_id: string | null;
   owner_wallet_address: string;
   token_id: number;
-  contract_address: string;
+  contract_address: string | null;
   qr_secret: string;
   status: string;
   seat_number: string | null;
@@ -75,6 +75,8 @@ interface CheckinHistoryRow {
   scan_method: string;
   verification_success: boolean;
   failure_reason: string | null;
+  transaction_hash: string | null;
+  chain_status: string | null;
   created_at: Date;
 }
 
@@ -259,6 +261,58 @@ export async function incrementCheckedIn(
   );
 }
 
+export async function updateCheckinChainTx(params: {
+  checkinId: string;
+  transactionHash: string | null;
+  chainStatus: 'pending' | 'confirmed' | 'failed';
+}): Promise<void> {
+  await pool.query(
+    `UPDATE checkins
+     SET transaction_hash = COALESCE($2, transaction_hash),
+         chain_status = $3
+     WHERE id = $1`,
+    [params.checkinId, params.transactionHash, params.chainStatus]
+  );
+}
+
+export async function listPendingCheckinChainJobs(limit = 25): Promise<
+  Array<{
+    checkinId: string;
+    ticketId: string;
+    ownerWallet: string;
+    tierIndex: number;
+    contractAddress: string;
+  }>
+> {
+  const result = await pool.query<{
+    checkin_id: string;
+    ticket_id: string;
+    owner_wallet_address: string;
+    tier_index: number;
+    contract_address: string;
+  }>(
+    `SELECT c.id AS checkin_id, t.id AS ticket_id, t.owner_wallet_address,
+            t.tier_index, t.contract_address
+     FROM checkins c
+     JOIN tickets t ON t.id = c.ticket_id
+     WHERE c.verification_success = TRUE
+       AND t.contract_address IS NOT NULL
+       AND (c.chain_status IS NULL OR c.chain_status = 'pending')
+       AND (c.transaction_hash IS NULL OR c.transaction_hash = '')
+     ORDER BY c.created_at ASC
+     LIMIT $1`,
+    [limit]
+  );
+
+  return result.rows.map((r) => ({
+    checkinId: r.checkin_id,
+    ticketId: r.ticket_id,
+    ownerWallet: r.owner_wallet_address,
+    tierIndex: r.tier_index,
+    contractAddress: r.contract_address,
+  }));
+}
+
 /* ------------------------------------------------------------------ */
 /*  Stats & history queries                                           */
 /* ------------------------------------------------------------------ */
@@ -311,7 +365,8 @@ export async function getCheckinHistory(
   const queryValues = [...values, pagination.limit, pagination.offset];
   const result = await pool.query<CheckinHistoryRow>(
     `SELECT c.id, c.ticket_id, c.event_id, c.zone_accessed,
-            c.scan_method, c.verification_success, c.failure_reason, c.created_at
+            c.scan_method, c.verification_success, c.failure_reason,
+            c.transaction_hash, c.chain_status, c.created_at
      FROM checkins c
      WHERE c.checked_in_by_id = $1${whereExtra}
      ORDER BY c.created_at DESC
@@ -362,6 +417,8 @@ function mapCheckinHistory(row: CheckinHistoryRow): VolunteerCheckinHistoryItem 
     scanMethod: row.scan_method,
     verificationSuccess: row.verification_success,
     failureReason: row.failure_reason,
+    transactionHash: row.transaction_hash,
+    chainStatus: row.chain_status,
     createdAt: row.created_at.toISOString(),
   };
 }

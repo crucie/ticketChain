@@ -1,5 +1,5 @@
 import { Client } from '@mstblockchain/mst-sdk';
-import { Contract, Wallet, JsonRpcProvider, type InterfaceAbi } from 'ethers';
+import { Contract, Wallet, JsonRpcProvider, getAddress, keccak256, toUtf8Bytes, type InterfaceAbi } from 'ethers';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -132,17 +132,11 @@ export async function adminMintOnChain(params: {
   return { txHash: receipt.hash as string };
 }
 
-export async function getDeployerAddress(): Promise<string> {
+export function getDeployerAddress(): Promise<string> {
   const wallet = getDeployerWallet();
-  return wallet.address;
+  return Promise.resolve(wallet.address);
 }
 
-/**
- * checkTxConfirmed
- * Returns true if the given transaction hash has been mined and succeeded
- * on the MST chain (receipt exists with status === 1).
- * Returns false if not yet mined or failed.
- */
 export async function adminTransferOnChain(params: {
   contractAddress: string;
   fromWallet: string;
@@ -164,12 +158,45 @@ export async function adminTransferOnChain(params: {
   return receipt.hash as string;
 }
 
+/**
+ * Record gate check-in on the per-event ticket contract.
+ * Gas is paid by the platform deployer (onlyOwner).
+ */
+export async function checkInTicketOnChain(params: {
+  contractAddress: string;
+  ticketId: string;
+  ownerWallet: string;
+  tierIndex: number;
+}): Promise<string> {
+  const wallet = getDeployerWallet();
+  const { abi } = loadArtifact();
+  const contract = new Contract(params.contractAddress, abi, wallet);
+
+  const ticketIdHash = keccak256(toUtf8Bytes(params.ticketId));
+  const tx = await contract.checkInTicket(
+    ticketIdHash,
+    getAddress(params.ownerWallet),
+    params.tierIndex
+  );
+  const receipt = await tx.wait();
+  return receipt.hash as string;
+}
+
+export function getExplorerTxUrl(txHash: string): string {
+  const base = env.MST_BLOCK_EXPLORER_URL.replace(/\/$/, '');
+  return `${base}/tx/${txHash}`;
+}
+
+/**
+ * Returns true if the given transaction hash has been mined and succeeded
+ * on the MST chain (receipt exists with status === 1).
+ */
 export async function checkTxConfirmed(txHash: string): Promise<boolean> {
   try {
     const provider = getEthersProvider();
     const receipt = await provider.getTransactionReceipt(txHash);
-    if (!receipt) return false; // not mined yet
-    return receipt.status === 1; // 1 = success, 0 = reverted
+    if (!receipt) return false;
+    return receipt.status === 1;
   } catch {
     return false;
   }

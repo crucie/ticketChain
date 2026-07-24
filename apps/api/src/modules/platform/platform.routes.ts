@@ -168,7 +168,7 @@ router.patch(
       req.user?.userId ?? ''
     );
     if ('error' in result) {
-      res.status(result.status).json({ success: false, error: result.error });
+      res.status(result.status ?? 400).json({ success: false, error: result.error });
       return;
     }
     res.json({ success: true });

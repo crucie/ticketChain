@@ -12,6 +12,7 @@ export const QUEUE_NAMES = {
 export const JOB_NAMES = {
   ORPHAN_RECONCILE: 'orphan-reconcile',
   SETTLEMENT_CREATE: 'settlement-create',
+  CHECKIN_CHAIN_CONFIRM: 'checkin-chain-confirm',
 } as const;
 
 let maintenanceQueue: Queue | null = null;
@@ -36,6 +37,15 @@ export async function scheduleRecurringJobs(): Promise<void> {
     {},
     {
       repeat: { every: 5 * 60 * 1000 },
+      removeOnComplete: 50,
+      removeOnFail: 100,
+    }
+  );
+  await queue.add(
+    JOB_NAMES.CHECKIN_CHAIN_CONFIRM,
+    {},
+    {
+      repeat: { every: 2 * 60 * 1000 },
       removeOnComplete: 50,
       removeOnFail: 100,
     }

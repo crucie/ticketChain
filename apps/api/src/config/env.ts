@@ -57,6 +57,7 @@ const envSchema = z.object({
   MST_FAUCET_COOLDOWN_HOURS: z.coerce.number().int().min(1).default(24),
   MST_FAUCET_MAX_BALANCE_WEI: z.string().regex(/^\d+$/).default('5000000000000000000'),
   MST_FAUCET_EXTERNAL_URL: z.string().url().optional(),
+  MST_BLOCK_EXPLORER_URL: z.string().url().default('https://testnet.mstscan.com'),
 });
 
 export type Env = z.infer<typeof envSchema>;

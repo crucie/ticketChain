@@ -110,9 +110,12 @@ export async function adminListEventCheckins(
     scan_method: string;
     verification_success: boolean;
     failure_reason: string | null;
+    transaction_hash: string | null;
+    chain_status: string | null;
     created_at: Date;
   }>(
-    `SELECT id, ticket_id, zone_accessed, scan_method, verification_success, failure_reason, created_at
+    `SELECT id, ticket_id, zone_accessed, scan_method, verification_success, failure_reason,
+            transaction_hash, chain_status, created_at
      FROM checkins WHERE event_id = $1
      ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
     [eventId, limit, offset]
@@ -126,6 +129,8 @@ export async function adminListEventCheckins(
       scanMethod: r.scan_method,
       success: r.verification_success,
       failureReason: r.failure_reason,
+      transactionHash: r.transaction_hash,
+      chainStatus: r.chain_status,
       createdAt: r.created_at.toISOString(),
     })),
     meta: { page, limit, total },
