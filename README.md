@@ -127,6 +127,8 @@ POST /api/tickets/mint             Direct on-chain mint (dev; requires ALLOW_DIR
 
 ## Production deployment
 
+See the full guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** (AWS, secrets, images, K8s/ECS, migrations, checklist).
+
 ```bash
 # Build container images
 docker build -f apps/api/Dockerfile -t ticketchain/api:latest .
@@ -138,6 +140,7 @@ kubectl apply -f deploy/k8s/
 
 ## Documentation
 
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — local + AWS deployment guide
 - [TICKETCHAIN_MASTER_SPEC.md](TICKETCHAIN_MASTER_SPEC.md) — full architecture specification
 - [docs/AUTH.md](docs/AUTH.md) — authentication strategy
 - [docs/DIRECT_MINT_AND_WALLET.md](docs/DIRECT_MINT_AND_WALLET.md) — direct mint, tMSTC, wallet balance setup
