@@ -398,8 +398,8 @@ export function CreateEventForm({ onClose }: CreateEventFormProps) {
                 longitude={longitude}
                 onPick={(loc) => {
                   setVenueName(loc.venueName);
-                  if (loc.city) setCity(loc.city);
-                  setCountry(loc.country);
+                  setCity(loc.city || '');
+                  setCountry(loc.country || '');
                   setLatitude(loc.latitude);
                   setLongitude(loc.longitude);
                 }}
