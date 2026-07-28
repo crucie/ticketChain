@@ -151,7 +151,7 @@ export default function PlatformDashboardPage() {
                           <Server className="w-4 h-4 text-zinc-600" />
                         </div>
                         <div>
-                          <h4 className="text-xs font-mono font-bold uppercase text-zinc-950">Arbitrum RPC Provider</h4>
+                          <h4 className="text-xs font-mono font-bold uppercase text-zinc-950">MST RPC</h4>
                           <p className="text-[10px] font-mono text-zinc-400 uppercase">Status: {kpis.rpcHealth}</p>
                         </div>
                       </div>
