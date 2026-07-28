@@ -7,6 +7,7 @@
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy-local.ts --network hardhat",
     "deploy:testnet": "hardhat run scripts/deploy-testnet.ts --network mstTestnet",
+    "deploy:marketplace:testnet": "hardhat run scripts/deploy-marketplace-testnet.ts --network mstTestnet",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\""
   },

@@ -1,0 +1,11 @@
+{
+  "network": "mstTestnet",
+  "ticketMarketplace": "0x35478DE421F216A2CFB3180B4F7ad2E133199cFa",
+  "platformFeeRecipient": "0x80eDe0eC1aB2405D90deFB44Fb5EC62dF06E6F6d",
+  "royaltyReceiver": "0x80eDe0eC1aB2405D90deFB44Fb5EC62dF06E6F6d",
+  "platformFeeBps": 200,
+  "royaltyBps": 500,
+  "deployTxHash": "0x4f9c09e76b46741a50534f82a5f11bc82894c36b985cd7e43c28609d5392ae41",
+  "deployer": "0x80eDe0eC1aB2405D90deFB44Fb5EC62dF06E6F6d",
+  "deployedAt": "2026-07-28T05:51:08.667Z"
+}
