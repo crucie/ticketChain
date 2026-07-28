@@ -186,8 +186,12 @@ export default function MyTicketsPage() {
     setActionError(null);
     setActionSuccess(null);
     try {
-      // ask price is in MSTC (display unit), converted to wei (10^18)
-      const priceWei = (Number(askPrice) * 1e18).toString();
+      // ask price is in MSTC (display unit), converted to wei (10^18) without float drift
+      const [whole, frac = ''] = askPrice.trim().split('.');
+      const fracPadded = (frac + '000000000000000000').slice(0, 18);
+      const priceWei = (
+        BigInt(whole || '0') * BigInt('1000000000000000000') + BigInt(fracPadded || '0')
+      ).toString();
       await listTicketForResale(selectedTicket.id, priceWei);
       setActionSuccess('Ticket listed for resale successfully.');
       setTimeout(() => {
