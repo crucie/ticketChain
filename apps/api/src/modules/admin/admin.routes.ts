@@ -26,6 +26,9 @@ import {
   getEventAnalyticsHandler,
   listEventCheckinsHandler,
   listEventTicketsHandler,
+  listEventVolunteersHandler,
+  assignEventVolunteerHandler,
+  revokeEventVolunteerHandler,
 } from './admin-event.controller.js';
 import {
   getOrganisationHandler,
@@ -110,14 +113,14 @@ router.delete('/promo-codes/:promoId', (req, res) => {
   void deletePromoCodeHandler(req, res);
 });
 
-router.get('/fraud-logs', (req, res) => {
+router.get('/fraud-logs', (_req, res) => {
   void (async () => {
     const data = await listFraudAlerts({ limit: 100, offset: 0 });
     res.json({ success: true, data });
   })();
 });
 
-router.get('/audit-logs', (req, res) => {
+router.get('/audit-logs', (_req, res) => {
   void (async () => {
     const result = await listAuditLogs({ limit: 100, offset: 0 });
     res.json({ success: true, data: result.rows });
@@ -237,6 +240,18 @@ router.get('/events/:eventId/tickets', (req, res) => {
 
 router.get('/events/:eventId/checkins', (req, res) => {
   void listEventCheckinsHandler(req, res);
+});
+
+router.get('/events/:eventId/volunteers', (req, res) => {
+  void listEventVolunteersHandler(req, res);
+});
+
+router.post('/events/:eventId/volunteers', (req, res) => {
+  void assignEventVolunteerHandler(req, res);
+});
+
+router.delete('/events/:eventId/volunteers/:userId', (req, res) => {
+  void revokeEventVolunteerHandler(req, res);
 });
 
 export default router;

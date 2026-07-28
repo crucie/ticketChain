@@ -21,6 +21,9 @@ import {
   adminGetEventAnalytics,
   adminListEventCheckins,
   adminListEventTickets,
+  adminListEventVolunteers,
+  adminAssignEventVolunteer,
+  adminRevokeEventVolunteer,
 } from './admin-event-insights.service.js';
 
 export async function listEventsHandler(req: Request, res: Response): Promise<void> {
@@ -217,6 +220,46 @@ export async function listEventCheckinsHandler(req: Request, res: Response): Pro
     return;
   }
   res.json({ success: true, data: result.rows, meta: result.meta });
+}
+
+export async function listEventVolunteersHandler(req: Request, res: Response): Promise<void> {
+  const result = await adminListEventVolunteers(req.orgId!, req.params.eventId as string);
+  if ('error' in result) {
+    res.status(result.status ?? 404).json({ success: false, error: result.error });
+    return;
+  }
+  res.json({ success: true, data: result.volunteers });
+}
+
+export async function assignEventVolunteerHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ success: false, error: 'Authentication required' });
+    return;
+  }
+  const result = await adminAssignEventVolunteer(
+    req.orgId!,
+    req.params.eventId as string,
+    req.user.userId,
+    req.body
+  );
+  if ('error' in result) {
+    res.status(result.status ?? 400).json({ success: false, error: result.error });
+    return;
+  }
+  res.status(result.status ?? 201).json({ success: true, data: result.assignment });
+}
+
+export async function revokeEventVolunteerHandler(req: Request, res: Response): Promise<void> {
+  const result = await adminRevokeEventVolunteer(
+    req.orgId!,
+    req.params.eventId as string,
+    req.params.userId as string
+  );
+  if ('error' in result) {
+    res.status(result.status ?? 404).json({ success: false, error: result.error });
+    return;
+  }
+  res.json({ success: true });
 }
 
 export async function uploadTierImageHandler(req: Request, res: Response): Promise<void> {
