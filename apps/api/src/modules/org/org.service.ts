@@ -115,6 +115,7 @@ export async function acceptOrgInvite(params: {
       orgId: invite.orgId,
       role: invite.roleToAssign,
       assignedById: invite.invitedById,
+      eventId: invite.eventId,
     });
     await client.query('COMMIT');
   } catch (err) {

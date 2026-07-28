@@ -59,6 +59,21 @@ function mapOrgSummary(row: OrgRow): OrganisationSummary {
   };
 }
 
+function parseKycDocuments(raw: unknown): OrganisationDetail['kycDocuments'] {
+  if (!raw) return null;
+  const value = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw;
+  if (!Array.isArray(value)) return null;
+  const docs = value
+    .filter((d): d is { type?: unknown; label?: unknown; url?: unknown } => Boolean(d) && typeof d === 'object')
+    .map((d) => ({
+      type: String(d.type ?? 'other'),
+      label: String(d.label ?? d.type ?? 'Document'),
+      url: String(d.url ?? ''),
+    }))
+    .filter((d) => Boolean(d.url));
+  return docs.length > 0 ? docs : null;
+}
+
 function mapOrgDetail(row: OrgRow): OrganisationDetail {
   return {
     ...mapOrgSummary(row),
@@ -84,6 +99,7 @@ function mapOrgDetail(row: OrgRow): OrganisationDetail {
     verifiedAt: row.verified_at?.toISOString() ?? null,
     walletConfirmedAt: row.wallet_confirmed_at?.toISOString() ?? null,
     updatedAt: row.updated_at.toISOString(),
+    kycDocuments: parseKycDocuments(row.kyc_documents),
   };
 }
 
@@ -603,6 +619,7 @@ export async function findInviteByToken(token: string): Promise<{
   invitedById: string;
   inviteeEmail: string;
   roleToAssign: number;
+  eventId: string | null;
   status: string;
   tokenExpiresAt: Date;
 } | null> {
@@ -612,10 +629,11 @@ export async function findInviteByToken(token: string): Promise<{
     invited_by_id: string;
     invitee_email: string;
     role_to_assign: number;
+    event_id: string | null;
     status: string;
     token_expires_at: Date;
   }>(
-    `SELECT id, org_id, invited_by_id, invitee_email, role_to_assign, status, token_expires_at
+    `SELECT id, org_id, invited_by_id, invitee_email, role_to_assign, event_id, status, token_expires_at
      FROM invites WHERE invite_token = $1`,
     [token]
   );
@@ -627,6 +645,7 @@ export async function findInviteByToken(token: string): Promise<{
     invitedById: row.invited_by_id,
     inviteeEmail: row.invitee_email,
     roleToAssign: row.role_to_assign,
+    eventId: row.event_id,
     status: row.status,
     tokenExpiresAt: row.token_expires_at,
   };
@@ -641,6 +660,7 @@ export async function acceptInvite(
     role: number;
     assignedById: string;
     walletAddress?: string;
+    eventId?: string | null;
   }
 ): Promise<void> {
   await client.query(
@@ -660,6 +680,20 @@ export async function acceptInvite(
       userId: params.userId,
       walletAddress: params.walletAddress,
     });
+  }
+
+  // Volunteer invite tied to an event → grant scanner access
+  if (params.role === 1 && params.eventId) {
+    await client.query(
+      `INSERT INTO volunteer_event_assignments (
+         event_id, user_id, org_id, permitted_zones, assigned_by_id, status
+       ) VALUES ($1, $2, $3, '{}', $4, 'active')
+       ON CONFLICT (event_id, user_id) DO UPDATE SET
+         status = 'active',
+         assigned_by_id = EXCLUDED.assigned_by_id,
+         updated_at = NOW()`,
+      [params.eventId, params.userId, params.orgId, params.assignedById]
+    );
   }
 
   await client.query(

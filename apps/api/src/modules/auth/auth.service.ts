@@ -212,6 +212,8 @@ export async function getPlatformAdminMe(adminId: string): Promise<AuthUserRespo
     firstName: admin.first_name,
     lastName: admin.last_name,
     phoneNumber: null,
+    bio: null,
+    profileImage: null,
   };
 }
 
@@ -255,6 +257,7 @@ export async function acceptInviteSession(
       role: invite.roleToAssign,
       assignedById: invite.invitedById,
       walletAddress: user.wallet_address,
+      eventId: invite.eventId,
     });
     await client.query('COMMIT');
   } catch (error) {
