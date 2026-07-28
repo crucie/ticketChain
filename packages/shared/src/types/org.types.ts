@@ -41,6 +41,14 @@ export interface OrganisationDetail extends OrganisationSummary {
   verifiedAt: string | null;
   walletConfirmedAt: string | null;
   updatedAt: string;
+  /** Submitted KYC document metadata (platform review). */
+  kycDocuments: OrgKycDocument[] | null;
+}
+
+export interface OrgKycDocument {
+  type: string;
+  label: string;
+  url: string;
 }
 
 export interface OrgMemberResponse {

@@ -16,6 +16,7 @@ export type {
   OrgMemberResponse,
   OrgMemberStatus,
   OrganisationDetail,
+  OrgKycDocument,
   OrganisationSummary,
   OrgStatus,
   OrgType,
