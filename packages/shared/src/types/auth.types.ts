@@ -19,4 +19,5 @@ export interface AuthUserResponse {
   phoneNumber: string | null;
   bio: string | null;
   profileImage: string | null;
+  isNewUser?: boolean;
 }

@@ -88,7 +88,7 @@ app.use('/api/volunteer', volunteerRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/profile', profileRoutes);
 
-app.use((err: Error & { type?: string }, _req, res, next) => {
+app.use((err: Error & { type?: string }, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err.type === 'entity.too.large') {
     res.status(413).json({ success: false, error: 'Upload too large (max 15MB)' });
     return;
