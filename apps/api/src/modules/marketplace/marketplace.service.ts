@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { pool } from '../../shared/db/postgres.service.js';
 import { connectRedis, redisClient } from '../../shared/cache/redis.service.js';
-import { adminTransferOnChain } from '../../shared/blockchain/event-contract.service.js';
+import { adminTransferOnChain, getExplorerTxUrl } from '../../shared/blockchain/event-contract.service.js';
 import {
   buyTicketOnChain,
   cancelListingOnChain,
@@ -79,7 +79,14 @@ export async function createResaleListing(params: {
   userId: string;
   ticketId: string;
   body: unknown;
-}): Promise<{ listing: ReturnType<typeof mapListing> } | { error: string; status: number }> {
+}): Promise<
+  | {
+      listing: ReturnType<typeof mapListing>;
+      transactionHash: string | null;
+      explorerUrl: string | null;
+    }
+  | { error: string; status: number }
+> {
   const parsed = resellBodySchema.safeParse(params.body);
   if (!parsed.success) {
     return { error: 'Invalid resale request', status: 400 };
@@ -131,6 +138,7 @@ export async function createResaleListing(params: {
   }
 
   let onChainListingId: number | undefined;
+  let listTxHash: string | null = null;
   if (isMarketplaceConfigured() && ctx.contract_address) {
     try {
       const onChain = await listTicketOnChain({
@@ -141,8 +149,9 @@ export async function createResaleListing(params: {
         maxPriceWei: maxPriceWei.toString(),
       });
       onChainListingId = onChain.listingId;
-    } catch {
-      // Off-chain listing still valid when chain unavailable
+      listTxHash = onChain.txHash ?? null;
+    } catch (err) {
+      console.warn('[marketplace] on-chain list failed; continuing custodial DB listing:', err);
     }
   }
 
@@ -171,7 +180,11 @@ export async function createResaleListing(params: {
     changes: { ticketId: params.ticketId, askPriceWei: parsed.data.askPriceWei },
   });
 
-  return { listing: mapListing(listing) };
+  return {
+    listing: mapListing(listing),
+    transactionHash: listTxHash,
+    explorerUrl: listTxHash ? getExplorerTxUrl(listTxHash) : null,
+  };
 }
 
 export async function cancelResaleListing(params: {
@@ -203,7 +216,10 @@ export async function cancelResaleListing(params: {
 export async function buyResaleListing(params: {
   userId: string;
   listingId: string;
-}): Promise<{ success: true } | { error: string; status: number }> {
+}): Promise<
+  | { success: true; transactionHash: string | null; explorerUrl: string | null }
+  | { error: string; status: number }
+> {
   const listing = await findListingById(params.listingId);
   if (!listing || listing.status !== 'active') {
     return { error: 'Listing not found or inactive', status: 404 };
@@ -307,5 +323,9 @@ export async function buyResaleListing(params: {
     changes: { ticketId: listing.ticket_id, salePriceWei: listing.ask_price_wei },
   });
 
-  return { success: true };
+  return {
+    success: true as const,
+    transactionHash: txHash,
+    explorerUrl: txHash ? getExplorerTxUrl(txHash) : null,
+  };
 }

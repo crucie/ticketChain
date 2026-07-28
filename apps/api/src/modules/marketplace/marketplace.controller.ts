@@ -25,5 +25,11 @@ export async function buyListingHandler(req: Request, res: Response): Promise<vo
     return;
   }
 
-  res.json({ success: true });
+  res.json({
+    success: true,
+    data: {
+      transactionHash: result.transactionHash,
+      explorerUrl: result.explorerUrl,
+    },
+  });
 }
