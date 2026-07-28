@@ -54,10 +54,12 @@ function CheckItem({
   done,
   label,
   explorerValue,
+  explorerType = 'address',
 }: {
   done: boolean;
   label: string;
   explorerValue?: string;
+  explorerType?: 'address' | 'tx';
 }) {
   return (
     <div className="flex items-center space-x-2 text-[10px] font-mono">
@@ -68,7 +70,7 @@ function CheckItem({
       )}
       <span className={done ? 'text-zinc-700' : 'text-zinc-400'}>{label}</span>
       {done && explorerValue && (
-        <ContractExplorerLink value={explorerValue} stopPropagation={false} />
+        <ContractExplorerLink value={explorerValue} type={explorerType} stopPropagation={false} />
       )}
     </div>
   );
@@ -629,6 +631,14 @@ export default function AdminEventDetailPage({ params }: { params: { eventId: st
                       label="Contract deployed on-chain"
                       explorerValue={event.contractAddress ?? undefined}
                     />
+                    {event.contractDeploymentTx && (
+                      <CheckItem
+                        done
+                        label="Deploy transaction"
+                        explorerValue={event.contractDeploymentTx}
+                        explorerType="tx"
+                      />
+                    )}
                     <CheckItem
                       done={event.status === 'published' || event.status === 'live'}
                       label="Tickets released for minting"
