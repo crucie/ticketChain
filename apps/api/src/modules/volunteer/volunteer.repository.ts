@@ -166,6 +166,89 @@ export async function findVolunteerEventDetail(
   };
 }
 
+export async function assignVolunteerToEvent(params: {
+  eventId: string;
+  userId: string;
+  orgId: string;
+  assignedById: string | null;
+  permittedZones?: string[];
+}): Promise<{ id: string }> {
+  const result = await pool.query<{ id: string }>(
+    `INSERT INTO volunteer_event_assignments (
+       event_id, user_id, org_id, permitted_zones, assigned_by_id, status
+     ) VALUES ($1, $2, $3, $4, $5, 'active')
+     ON CONFLICT (event_id, user_id) DO UPDATE SET
+       status = 'active',
+       permitted_zones = EXCLUDED.permitted_zones,
+       assigned_by_id = EXCLUDED.assigned_by_id,
+       updated_at = NOW()
+     RETURNING id`,
+    [
+      params.eventId,
+      params.userId,
+      params.orgId,
+      params.permittedZones ?? [],
+      params.assignedById,
+    ]
+  );
+  return { id: result.rows[0].id };
+}
+
+export async function revokeVolunteerFromEvent(
+  eventId: string,
+  userId: string
+): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE volunteer_event_assignments
+     SET status = 'inactive', updated_at = NOW()
+     WHERE event_id = $1 AND user_id = $2 AND status = 'active'`,
+    [eventId, userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function listEventVolunteers(eventId: string): Promise<
+  Array<{
+    id: string;
+    userId: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    permittedZones: string[];
+    status: string;
+    createdAt: string;
+  }>
+> {
+  const result = await pool.query<{
+    id: string;
+    user_id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    permitted_zones: string[];
+    status: string;
+    created_at: Date;
+  }>(
+    `SELECT vea.id, vea.user_id, u.email, u.first_name, u.last_name,
+            vea.permitted_zones, vea.status, vea.created_at
+     FROM volunteer_event_assignments vea
+     JOIN users u ON u.id = vea.user_id
+     WHERE vea.event_id = $1
+     ORDER BY vea.created_at DESC`,
+    [eventId]
+  );
+  return result.rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    email: r.email,
+    firstName: r.first_name,
+    lastName: r.last_name,
+    permittedZones: r.permitted_zones ?? [],
+    status: r.status,
+    createdAt: r.created_at.toISOString(),
+  }));
+}
+
 /* ------------------------------------------------------------------ */
 /*  Ticket lookup for check-in                                        */
 /* ------------------------------------------------------------------ */
