@@ -13,3 +13,10 @@ coverage/
 packages/contracts/cache/
 packages/contracts/artifacts/
 packages/contracts/typechain-types/
+
+# deploy secrets (local only)
+deploy/aws/app-secret.json
+deploy/aws/ecs-env.json
+deploy/aws/*.pem
+
+deploy/aws/task-*.json
