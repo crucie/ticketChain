@@ -78,6 +78,7 @@ export interface EventDetail extends EventSummary {
   description: string | null;
   venueName: string | null;
   contractAddress: string | null;
+  contractDeploymentTx?: string | null;
   resaleEnabled?: boolean;
   tiers?: TierResponse[];
 }
@@ -685,6 +686,7 @@ export interface AdminEventSummary {
 
 export interface AdminMember {
   id: string;
+  userId: string;
   role: number;
   status: string;
   assignedAt: string;
@@ -1059,6 +1061,49 @@ export async function getPlatformTenants(): Promise<PlatformTenant[]> {
   return parsed.data ?? [];
 }
 
+export interface PlatformOrgKycDocument {
+  type: string;
+  label: string;
+  url: string;
+}
+
+/** Full organisation detail for platform review (includes KYC docs). */
+export interface PlatformOrganisationDetail extends PlatformTenant {
+  description: string | null;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  websiteUrl: string | null;
+  brandPrimaryColor: string | null;
+  brandSecondaryColor: string | null;
+  taxId: string | null;
+  gstNumber: string | null;
+  registrationNumber: string | null;
+  orgType: string | null;
+  state: string | null;
+  postalCode: string | null;
+  founderName: string | null;
+  founderPhone: string | null;
+  pendingFounderEmail: string | null;
+  superAdminWalletAddress: string | null;
+  chainId: number;
+  verifiedAt: string | null;
+  walletConfirmedAt: string | null;
+  updatedAt: string;
+  kycDocuments: PlatformOrgKycDocument[] | null;
+}
+
+export async function getPlatformOrganisation(orgId: string): Promise<PlatformOrganisationDetail> {
+  const res = await fetch(`${API_URL}/api/platform/organisations/${orgId}`, {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  const parsed = await parseJson<PlatformOrganisationDetail>(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error ?? 'Failed to fetch organisation');
+  }
+  return parsed.data;
+}
+
 export async function updateTenantKyc(tenantId: string, status: 'verified' | 'suspended' | 'pending'): Promise<void> {
   const action = status === 'verified' ? 'approve' : 'reject';
   const res = await fetch(`${API_URL}/api/platform/organisations/${tenantId}/verify`, {
@@ -1329,12 +1374,77 @@ export async function getEventTicketsAdmin(eventId: string): Promise<Array<{
   id: string;
   tierName: string;
   ownerWallet: string;
+  ownerEmail?: string | null;
+  ownerName?: string | null;
   status: string;
+  seatNumber?: string | null;
+  transactionHash?: string | null;
   createdAt: string;
 }>> {
   const res = await fetch(`${API_URL}/api/admin/events/${eventId}/tickets`, { credentials: 'include', cache: 'no-store' });
-  const parsed = await parseJson<Array<{ id: string; tierName: string; ownerWallet: string; status: string; createdAt: string }>>(res);
+  const parsed = await parseJson<Array<{
+    id: string;
+    tierName: string;
+    ownerWallet: string;
+    ownerEmail?: string | null;
+    ownerName?: string | null;
+    status: string;
+    seatNumber?: string | null;
+    transactionHash?: string | null;
+    createdAt: string;
+  }>>(res);
   return parsed.data ?? [];
+}
+
+export async function getEventVolunteersAdmin(eventId: string): Promise<Array<{
+  id: string;
+  userId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  permittedZones: string[];
+  status: string;
+  createdAt: string;
+}>> {
+  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers`, {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  const parsed = await parseJson<Array<{
+    id: string;
+    userId: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    permittedZones: string[];
+    status: string;
+    createdAt: string;
+  }>>(res);
+  return parsed.data ?? [];
+}
+
+export async function assignEventVolunteerAdmin(
+  eventId: string,
+  userId: string,
+  permittedZones?: string[]
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, permittedZones }),
+  });
+  const parsed = await parseJson<unknown>(res);
+  if (!parsed.ok) throw new Error(parsed.error ?? 'Failed to assign volunteer');
+}
+
+export async function revokeEventVolunteerAdmin(eventId: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers/${userId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const parsed = await parseJson<unknown>(res);
+  if (!parsed.ok) throw new Error(parsed.error ?? 'Failed to revoke volunteer');
 }
 
 export async function getEventCheckinsAdmin(eventId: string): Promise<Array<{

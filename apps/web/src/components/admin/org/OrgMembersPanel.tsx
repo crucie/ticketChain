@@ -22,10 +22,10 @@ const ROLE_STYLES: Record<number, string> = {
 };
 
 const MOCK_MEMBERS: AdminMember[] = [
-  { id: 'm-1', email: 'alice@mst.events', saralUserId: 'su-1', role: 3, status: 'active', assignedAt: '2025-01-15T10:00:00Z' },
-  { id: 'm-2', email: 'bob@mst.events', saralUserId: 'su-2', role: 2, status: 'active', assignedAt: '2025-02-20T12:00:00Z' },
-  { id: 'm-3', email: 'carol@mst.events', saralUserId: 'su-3', role: 1, status: 'active', assignedAt: '2025-04-10T09:00:00Z' },
-  { id: 'm-4', email: 'dave@mst.events', saralUserId: 'su-4', role: 1, status: 'pending', assignedAt: '2025-05-28T16:00:00Z' },
+  { id: 'm-1', userId: 'u-1', email: 'alice@mst.events', saralUserId: 'su-1', role: 3, status: 'active', assignedAt: '2025-01-15T10:00:00Z' },
+  { id: 'm-2', userId: 'u-2', email: 'bob@mst.events', saralUserId: 'su-2', role: 2, status: 'active', assignedAt: '2025-02-20T12:00:00Z' },
+  { id: 'm-3', userId: 'u-3', email: 'carol@mst.events', saralUserId: 'su-3', role: 1, status: 'active', assignedAt: '2025-04-10T09:00:00Z' },
+  { id: 'm-4', userId: 'u-4', email: 'dave@mst.events', saralUserId: 'su-4', role: 1, status: 'pending', assignedAt: '2025-05-28T16:00:00Z' },
 ];
 
 export function OrgMembersPanel() {
@@ -82,6 +82,7 @@ export function OrgMembersPanel() {
       ...prev,
       {
         id: `m-${Date.now()}`,
+        userId: `u-${Date.now()}`,
         email: inviteEmail.trim(),
         saralUserId: '',
         role: inviteRole,
