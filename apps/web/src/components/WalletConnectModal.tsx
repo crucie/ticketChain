@@ -22,6 +22,8 @@ interface WalletConnectModalProps {
   onClose: () => void;
   onComplete?: (wallet: ConnectedExternalWallet | null) => void;
   allowSkip?: boolean;
+  /** When true, user must connect before the modal can close */
+  required?: boolean;
   linkToAccount?: boolean;
   title?: string;
 }
@@ -31,6 +33,7 @@ export function WalletConnectModal({
   onClose,
   onComplete,
   allowSkip = true,
+  required = false,
   linkToAccount = true,
   title = 'Connect your browser wallet',
 }: WalletConnectModalProps) {
@@ -149,9 +152,12 @@ export function WalletConnectModal({
   };
 
   const finish = (wallet: ConnectedExternalWallet | null) => {
+    if (required && !wallet) return;
     onComplete?.(wallet);
     onClose();
   };
+
+  const canDismiss = !required || connected !== null;
 
   if (!open) return null;
 
@@ -164,7 +170,7 @@ export function WalletConnectModal({
         type="button"
         aria-label="Close wallet connect"
         className="absolute inset-0 bg-zinc-950/50 backdrop-blur-sm"
-        onClick={() => finish(connected)}
+        onClick={() => canDismiss && finish(connected)}
       />
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -176,14 +182,16 @@ export function WalletConnectModal({
             <Wallet className="w-4 h-4 text-zinc-600" />
             <h2 className="text-base font-semibold text-zinc-950">{title}</h2>
           </div>
-          <button
-            type="button"
-            onClick={() => finish(connected)}
-            className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-900"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {canDismiss && (
+            <button
+              type="button"
+              onClick={() => finish(connected)}
+              className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-900"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="p-5 space-y-4">
@@ -319,7 +327,7 @@ export function WalletConnectModal({
           )}
 
           <div className="flex gap-2 pt-1">
-            {allowSkip && (
+            {!required && allowSkip && (
               <button
                 type="button"
                 onClick={() => finish(connected)}

@@ -109,6 +109,11 @@ export default function ProfilePage() {
   const [externalWallet, setExternalWallet] = useState<ConnectedExternalWallet | null>(null);
   const [externalBalanceWei, setExternalBalanceWei] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [walletConnectRequired, setWalletConnectRequired] = useState(false);
+
+  const requiresBrowserWallet = user !== null && user.role !== 99;
+  const walletModalOpen =
+    showWalletModal || (walletConnectRequired && requiresBrowserWallet && !externalWallet);
 
   // Faucet request states
   const [requestingPlatformFaucet, setRequestingPlatformFaucet] = useState(false);
@@ -182,6 +187,8 @@ export default function ProfilePage() {
             fetchExternalBalanceWei(stored.address)
               .then(setExternalBalanceWei)
               .catch(() => setExternalBalanceWei(null));
+          } else if (currentUser.role !== 99) {
+            setWalletConnectRequired(true);
           }
         }
       } catch (err) {
@@ -505,8 +512,9 @@ export default function ProfilePage() {
                             />
                           </>
                         ) : (
-                          <p className="text-xs text-zinc-500">
-                            Connect MetaMask or Phantom for MST Testnet &amp; faucet.
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md p-2">
+                            <strong className="font-semibold">Required:</strong> connect MetaMask or
+                            Phantom to receive NFT tickets and use the MST testnet faucet.
                           </p>
                         )}
                       </div>
@@ -699,14 +707,27 @@ export default function ProfilePage() {
       </div>
 
       <WalletConnectModal
-        open={showWalletModal}
-        allowSkip
-        onClose={() => setShowWalletModal(false)}
+        open={walletModalOpen}
+        required={walletConnectRequired && !externalWallet}
+        allowSkip={!walletConnectRequired || externalWallet !== null}
+        linkToAccount
+        title={
+          walletConnectRequired && !externalWallet
+            ? 'Connect your wallet to continue'
+            : 'Connect your browser wallet'
+        }
+        onClose={() => {
+          if (walletConnectRequired && !externalWallet) return;
+          setShowWalletModal(false);
+        }}
         onComplete={(w) => {
           setShowWalletModal(false);
           if (w) {
+            setWalletConnectRequired(false);
             setExternalWallet(w);
             void fetchExternalBalanceWei(w.address).then(setExternalBalanceWei);
+            void getWalletBalance().then(setWallet).catch(() => null);
+            void getMe().then((me) => me && setUser(me)).catch(() => null);
           }
         }}
       />
