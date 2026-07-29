@@ -20,3 +20,6 @@ deploy/aws/ecs-env.json
 deploy/aws/*.pem
 
 deploy/aws/task-*.json
+
+deploy/aws/create-admin-overrides.json
+deploy/aws/.platform-admin-pass.tmp
