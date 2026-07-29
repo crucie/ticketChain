@@ -109,11 +109,12 @@ Direct mint fails if the deployer cannot pay `tier.priceWei × quantity`.
 
 ### 5. User flow (direct mint)
 
-1. Sign in via Web3Auth (`/login`)
-2. Open published event → pick tier → **On-chain Mint**
-3. API mints NFT to user's wallet
-4. View tickets at `/tickets`
-5. View **tMSTC balance** at `/profile` (native balance of custodial wallet)
+1. Sign in via Web3Auth email/SMS (`/login`) — no MetaMask step on the login page
+2. Open `/profile` and connect MetaMask or Phantom (required) so tickets mint to that address
+3. Open published event → pick tier → **On-chain Mint**
+4. API mints NFT to the linked wallet
+5. View tickets at `/tickets`
+6. View **tMSTC balance** at `/profile`
 
 ---
 
