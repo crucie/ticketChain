@@ -154,3 +154,15 @@ Response:
 | Balance shows 0 on profile | User wallet never funded (normal for new Web3Auth users) |
 
 For **marketplace resale buys**, the **buyer's** wallet must hold enough tMSTC — that path uses on-chain payment from the buyer, not the deployer.
+
+## Testnet faucet behavior
+
+By default, **Get test tMSTC** copies the linked wallet address and opens the official
+[MST Testnet faucet](https://faucet.mstblockchain.com/). The app does not use
+`MST_DEPLOYER_PRIVATE_KEY` as a faucet because that wallet deploys contracts and pays
+platform transactions.
+
+An in-app transfer is enabled only when `MST_FAUCET_PRIVATE_KEY` is set. Use a dedicated,
+limited-balance testnet wallet for that key—never a personal wallet or the deployer. The
+default in-app grant is 1 tMSTC with a 24-hour cooldown and a 5 tMSTC maximum-balance
+check.

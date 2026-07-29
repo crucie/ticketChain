@@ -233,7 +233,7 @@ export async function requestFaucetFunds(userId: string, body: unknown) {
   }
 
   const target = parsed.data.targetAddress.toLowerCase();
-  const externalUrl = env.MST_FAUCET_EXTERNAL_URL ?? 'https://docs.mstblockchain.com';
+  const externalUrl = env.MST_FAUCET_EXTERNAL_URL;
 
   if (!isFaucetConfigured()) {
     return {

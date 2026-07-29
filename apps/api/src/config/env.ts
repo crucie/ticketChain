@@ -52,11 +52,11 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
 
-  MST_FAUCET_PRIVATE_KEY: z.string().min(1).optional(),
-  MST_FAUCET_AMOUNT_WEI: z.string().regex(/^\d+$/).default('10000000000000000000'),
+  MST_FAUCET_PRIVATE_KEY: z.string().regex(/^(0x)?[a-fA-F0-9]{64}$/).optional(),
+  MST_FAUCET_AMOUNT_WEI: z.string().regex(/^\d+$/).default('1000000000000000000'),
   MST_FAUCET_COOLDOWN_HOURS: z.coerce.number().int().min(1).default(24),
   MST_FAUCET_MAX_BALANCE_WEI: z.string().regex(/^\d+$/).default('5000000000000000000'),
-  MST_FAUCET_EXTERNAL_URL: z.string().url().optional(),
+  MST_FAUCET_EXTERNAL_URL: z.string().url().default('https://faucet.mstblockchain.com/'),
   MST_BLOCK_EXPLORER_URL: z.string().url().default('https://testnet.mstscan.com'),
 });
 
