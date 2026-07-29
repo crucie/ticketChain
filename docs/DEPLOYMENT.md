@@ -202,13 +202,15 @@ pnpm dev:web                                          # http://localhost:3000
 pnpm --filter @ticketchain/api worker:dev             # BullMQ worker
 ```
 
-### Seed accounts
+### Seed accounts (local only)
 
 | Role | Credentials |
 |------|-------------|
-| Platform admin | `admin@ticketchain.com` / `ChangeMe123!` |
+| Platform admin | Created by `pnpm seed` into `platform_admins` — see `apps/api/src/scripts/seed.ts` (dev password only; never reuse in prod) |
 | Org super admin | `founder@demo-org.com` via Web3Auth |
 | Org slug | `demo-events` |
+
+Production: create platform admins with a strong password against RDS; do **not** run `pnpm seed` on the live database.
 
 Health: http://localhost:5000/health
 

@@ -56,14 +56,19 @@ pnpm --filter @ticketchain/api worker:dev
 | API health | http://localhost:5000/health |
 | Platform admin | http://localhost:3000/login → Platform Administrator Portal |
 
-### 4. Seed logins
+### 4. Seed logins (local only)
+
+After `pnpm seed`, platform staff can use the **Platform Administrator Portal** on `/login`.
+
+Local seed creates a platform admin in `platform_admins` (see `apps/api/src/scripts/seed.ts`).  
+**Do not use seed credentials in production** — create a secure admin for AWS separately.
 
 | Role | How to sign in |
 |------|----------------|
-| Platform admin | `admin@ticketchain.com` / `ChangeMe123!` |
+| Platform admin | Email + password via Platform Administrator Portal |
 | Org / consumer | Web3Auth email/SMS on `/login` |
 
-Demo org slug: `demo-events`
+Demo org slug (local seed): `demo-events`
 
 ### 5. After first consumer sign-in
 
