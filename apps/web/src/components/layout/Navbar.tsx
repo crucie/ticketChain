@@ -81,7 +81,7 @@ export default function Navbar() {
                 </span>
 
                 {/* Dashboard Shortcuts based on roles */}
-                {user.role >= 2 && ( // Admin or Super Admin
+                {user.role >= 2 && user.role !== 99 && ( // Organisation Admin or Super Admin
                   <Link
                     href="/admin"
                     className="text-xs font-mono uppercase bg-zinc-900 hover:bg-zinc-800 text-white px-2.5 py-1 rounded transition-colors"
@@ -158,7 +158,7 @@ export default function Navbar() {
           {user ? (
             <div className="space-y-1">
               <p className="px-3 py-1 text-[10px] font-mono text-zinc-400 truncate">{user.email}</p>
-              {user.role >= 2 && (
+              {user.role >= 2 && user.role !== 99 && (
                 <Link
                   href="/admin"
                   onClick={() => setIsOpen(false)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import {
   getPlatformOrganisation,
+  setAdminOrgContext,
   updateTenantCommission,
   updateTenantKyc,
   type PlatformOrganisationDetail,
@@ -447,6 +449,14 @@ export default function TenantDetailDrawer({ tenantId, onClose, onUpdated }: Pro
 
         {org && !loading && (
           <footer className="shrink-0 border-t border-zinc-100 px-5 py-4 flex flex-wrap gap-2 bg-white">
+            <Link
+              href={`/admin?orgId=${encodeURIComponent(org.id)}`}
+              onClick={() => setAdminOrgContext(org.id)}
+              className="flex-1 min-w-[160px] py-2.5 bg-zinc-900 text-white rounded text-xs font-mono font-bold uppercase hover:bg-zinc-800 inline-flex items-center justify-center gap-1.5"
+            >
+              Open Admin Dashboard
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
             {org.verificationStatus !== 'verified' && (
               <>
                 <button

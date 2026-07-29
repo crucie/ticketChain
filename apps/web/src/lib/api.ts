@@ -1,4 +1,36 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const ADMIN_ORG_CONTEXT_KEY = 'ticketchain:admin-org-context';
+
+export function setAdminOrgContext(orgId: string): void {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.setItem(ADMIN_ORG_CONTEXT_KEY, orgId);
+  }
+}
+
+export function getAdminOrgContext(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const queryOrgId = new URLSearchParams(window.location.search).get('orgId');
+  if (queryOrgId) {
+    setAdminOrgContext(queryOrgId);
+    return queryOrgId;
+  }
+
+  return window.sessionStorage.getItem(ADMIN_ORG_CONTEXT_KEY);
+}
+
+export function clearAdminOrgContext(): void {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem(ADMIN_ORG_CONTEXT_KEY);
+  }
+}
+
+function adminApiUrl(path: string): string {
+  const orgId = getAdminOrgContext();
+  if (!orgId) return `${API_URL}${path}`;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${API_URL}${path}${separator}orgId=${encodeURIComponent(orgId)}`;
+}
 
 export interface AuthUser {
   id: string;
@@ -224,7 +256,11 @@ export async function getMe(): Promise<AuthUser | null> {
     const res = await fetch(`${API_URL}/api/auth/me`, { credentials: 'include', cache: 'no-store' });
     if (!res.ok) return null;
     const parsed = await parseJson<AuthUser>(res);
-    return parsed.ok && parsed.data ? parsed.data : null;
+    const user = parsed.ok && parsed.data ? parsed.data : null;
+    if (user && user.role !== 99) {
+      clearAdminOrgContext();
+    }
+    return user;
   } catch {
     // Network error (API down / connection refused) — don't crash
     return null;
@@ -702,7 +738,7 @@ export interface AdminEarnings {
 }
 
 export async function getAdminOrganisation(): Promise<AdminOrgDetails> {
-  const res = await fetch(`${API_URL}/api/admin/organisation`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/organisation'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<AdminOrgDetails>(res);
   if (!parsed.ok || !parsed.data) {
     throw new Error(parsed.error ?? 'Failed to fetch organisation details');
@@ -711,13 +747,13 @@ export async function getAdminOrganisation(): Promise<AdminOrgDetails> {
 }
 
 export async function getAdminEvents(): Promise<AdminEventSummary[]> {
-  const res = await fetch(`${API_URL}/api/admin/events`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/events'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<AdminEventSummary[]>(res);
   return parsed.data ?? [];
 }
 
 export async function getAdminEvent(eventId: string): Promise<EventDetail | null> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}`), {
     credentials: 'include',
     cache: 'no-store',
   });
@@ -732,7 +768,7 @@ export async function updateAdminOrganisation(body: Partial<AdminOrgDetails> & {
   postalCode?: string;
   founderPhone?: string;
 }): Promise<AdminOrgDetails> {
-  const res = await fetch(`${API_URL}/api/admin/organisation`, {
+  const res = await fetch(adminApiUrl('/api/admin/organisation'), {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -750,7 +786,7 @@ export async function submitOrgKyc(documents: Array<{
   label: string;
   url: string;
 }>): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/organisation/kyc`, {
+  const res = await fetch(adminApiUrl('/api/admin/organisation/kyc'), {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -781,7 +817,7 @@ export async function uploadKycDocument(params: {
   mimeType: string;
   contentBase64: string;
 }): Promise<{ url: string }> {
-  const res = await fetch(`${API_URL}/api/admin/organisation/upload-asset`, {
+  const res = await fetch(adminApiUrl('/api/admin/organisation/upload-asset'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -808,7 +844,7 @@ export async function uploadOrgAsset(params: {
   contentBase64: string;
   assetType: 'logo' | 'banner';
 }): Promise<{ org: AdminOrgDetails }> {
-  const res = await fetch(`${API_URL}/api/admin/organisation/upload-asset`, {
+  const res = await fetch(adminApiUrl('/api/admin/organisation/upload-asset'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -822,7 +858,7 @@ export async function uploadOrgAsset(params: {
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
-  const res = await fetch(`${API_URL}/api/admin/onboarding/status`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/onboarding/status'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<OnboardingStatus>(res);
   if (!parsed.ok || !parsed.data) {
     throw new Error(parsed.error ?? 'Failed to fetch onboarding status');
@@ -831,7 +867,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
 }
 
 export async function confirmOrgWallet(walletAddress: string): Promise<OnboardingStatus> {
-  const res = await fetch(`${API_URL}/api/admin/onboarding/confirm-wallet`, {
+  const res = await fetch(adminApiUrl('/api/admin/onboarding/confirm-wallet'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -862,7 +898,7 @@ export async function createAdminEvent(body: {
   resaleRoyaltyBps?: number;
   zones?: string[];
 }): Promise<{ id: string }> {
-  const res = await fetch(`${API_URL}/api/admin/events`, {
+  const res = await fetch(adminApiUrl('/api/admin/events'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -888,7 +924,7 @@ export async function createAdminTier(
     isTransferable?: boolean;
   }
 ): Promise<TierResponse> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/tiers`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/tiers`), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -902,7 +938,7 @@ export async function createAdminTier(
 }
 
 export async function deleteAdminTier(eventId: string, tierId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/tiers/${tierId}`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/tiers/${tierId}`), {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -916,7 +952,7 @@ export async function uploadAdminEventBanner(
   eventId: string,
   params: { fileName: string; mimeType: string; contentBase64: string }
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/upload-banner`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/upload-banner`), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -933,7 +969,7 @@ export async function uploadAdminTierImage(
   tierId: string,
   params: { fileName: string; mimeType: string; contentBase64: string }
 ): Promise<TierResponse> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/tiers/${tierId}/upload-image`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/tiers/${tierId}/upload-image`), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -947,7 +983,7 @@ export async function uploadAdminTierImage(
 }
 
 export async function updateEventStatus(eventId: string, action: 'deploy' | 'publish' | 'go-live' | 'end' | 'cancel'): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/${action}`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/${action}`), {
     method: 'POST',
     credentials: 'include',
   });
@@ -958,7 +994,7 @@ export async function updateEventStatus(eventId: string, action: 'deploy' | 'pub
 }
 
 export async function getAdminMembers(): Promise<AdminMember[]> {
-  const res = await fetch(`${API_URL}/api/admin/members`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/members'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<AdminMember[]>(res);
   return parsed.data ?? [];
 }
@@ -969,7 +1005,7 @@ export async function inviteAdminMember(body: {
   eventId?: string;
   name?: string;
 }): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/members/invite`, {
+  const res = await fetch(adminApiUrl('/api/admin/members/invite'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -982,7 +1018,7 @@ export async function inviteAdminMember(body: {
 }
 
 export async function getAdminEarnings(): Promise<AdminEarnings> {
-  const res = await fetch(`${API_URL}/api/admin/finance/earnings`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/finance/earnings'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<AdminEarnings>(res);
   if (!parsed.ok || !parsed.data) {
     throw new Error(parsed.error ?? 'Failed to fetch earnings');
@@ -1228,6 +1264,7 @@ export async function logoutSession(): Promise<void> {
   if (!parsed.ok) {
     throw new Error(parsed.error ?? 'Logout failed');
   }
+  clearAdminOrgContext();
 }
 
 // --- Venues ---
@@ -1242,7 +1279,7 @@ export interface VenueSummary {
 }
 
 export async function getAdminVenues(): Promise<VenueSummary[]> {
-  const res = await fetch(`${API_URL}/api/admin/venues`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/venues'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<VenueSummary[]>(res);
   return parsed.data ?? [];
 }
@@ -1255,7 +1292,7 @@ export async function createAdminVenue(body: {
   capacity?: number;
   seatMap?: unknown;
 }): Promise<VenueSummary> {
-  const res = await fetch(`${API_URL}/api/admin/venues`, {
+  const res = await fetch(adminApiUrl('/api/admin/venues'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -1267,7 +1304,7 @@ export async function createAdminVenue(body: {
 }
 
 export async function deleteAdminVenue(venueId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/venues/${venueId}`, { method: 'DELETE', credentials: 'include' });
+  const res = await fetch(adminApiUrl(`/api/admin/venues/${venueId}`), { method: 'DELETE', credentials: 'include' });
   const parsed = await parseJson<void>(res);
   if (!parsed.ok) throw new Error(parsed.error ?? 'Failed to delete venue');
 }
@@ -1286,7 +1323,7 @@ export interface PromoCodeSummary {
 }
 
 export async function getAdminPromoCodes(): Promise<PromoCodeSummary[]> {
-  const res = await fetch(`${API_URL}/api/admin/promo-codes`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl('/api/admin/promo-codes'), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<PromoCodeSummary[]>(res);
   return parsed.data ?? [];
 }
@@ -1297,7 +1334,7 @@ export async function createAdminPromoCode(body: {
   discountValue: string;
   maxUses?: number;
 }): Promise<PromoCodeSummary> {
-  const res = await fetch(`${API_URL}/api/admin/promo-codes`, {
+  const res = await fetch(adminApiUrl('/api/admin/promo-codes'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -1309,7 +1346,7 @@ export async function createAdminPromoCode(body: {
 }
 
 export async function updateAdminPromoCode(promoId: string, body: { status?: string }): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/promo-codes/${promoId}`, {
+  const res = await fetch(adminApiUrl(`/api/admin/promo-codes/${promoId}`), {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -1364,7 +1401,7 @@ export interface EventAnalytics {
 }
 
 export async function getEventAnalytics(eventId: string): Promise<EventAnalytics> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/analytics`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/analytics`), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<EventAnalytics>(res);
   if (!parsed.ok || !parsed.data) throw new Error(parsed.error ?? 'Failed to load analytics');
   return parsed.data;
@@ -1381,7 +1418,7 @@ export async function getEventTicketsAdmin(eventId: string): Promise<Array<{
   transactionHash?: string | null;
   createdAt: string;
 }>> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/tickets`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/tickets`), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<Array<{
     id: string;
     tierName: string;
@@ -1406,7 +1443,7 @@ export async function getEventVolunteersAdmin(eventId: string): Promise<Array<{
   status: string;
   createdAt: string;
 }>> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/volunteers`), {
     credentials: 'include',
     cache: 'no-store',
   });
@@ -1428,7 +1465,7 @@ export async function assignEventVolunteerAdmin(
   userId: string,
   permittedZones?: string[]
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/volunteers`), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -1439,7 +1476,7 @@ export async function assignEventVolunteerAdmin(
 }
 
 export async function revokeEventVolunteerAdmin(eventId: string, userId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/volunteers/${userId}`, {
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/volunteers/${userId}`), {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -1457,7 +1494,7 @@ export async function getEventCheckinsAdmin(eventId: string): Promise<Array<{
   chainStatus?: string | null;
   createdAt: string;
 }>> {
-  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/checkins`, { credentials: 'include', cache: 'no-store' });
+  const res = await fetch(adminApiUrl(`/api/admin/events/${eventId}/checkins`), { credentials: 'include', cache: 'no-store' });
   const parsed = await parseJson<Array<{
     id: string;
     ticketId: string;

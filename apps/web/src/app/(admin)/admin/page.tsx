@@ -16,6 +16,7 @@ import {
   getMe,
   getAdminOrganisation,
   getAdminEvents,
+  getAdminOrgContext,
   getOnboardingStatus,
   acceptOrgInvite,
   getMyPendingInvites,
@@ -56,6 +57,10 @@ export default function AdminDashboardPage() {
       if (!me || me.role < 2) {
         setError('Insufficient permissions. Organisation Admin role required.');
         setLoading(false);
+        return;
+      }
+      if (me.role === 99 && !getAdminOrgContext()) {
+        window.location.replace('/platform/organisations');
         return;
       }
       const [orgData, eventsData, onboardingData, invitesData] = await Promise.all([
