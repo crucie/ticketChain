@@ -125,7 +125,7 @@ Web loads the **root** `.env` via `node --env-file=../../.env` (see `apps/web/pa
 | `WEB3AUTH_CLIENT_ID` | Yes | Must match Web3Auth dashboard |
 | `WEB3AUTH_JWKS_URL` / `WEB3AUTH_ISSUER` | No | Defaults to Web3Auth cloud JWKS |
 | `MST_RPC_URL` | Yes | Prefer dedicated / failover RPC in prod |
-| `MST_CHAIN_ID` | Yes | Must match network (local/dev may differ from example `4545`) |
+| `MST_CHAIN_ID` | Yes | Must match MST Testnet (`91562037`) |
 | `MST_BLOCK_EXPLORER_URL` | No | Used for explorer links |
 | `MST_DEPLOYER_PRIVATE_KEY` | Strongly yes | Without it, on-chain mint/check-in/transfer fail |
 | `ORG_REGISTRY_ADDRESS` | Yes for orgs | `0x` + 40 hex |
@@ -459,10 +459,12 @@ Separate from `clawx-*`. Provisioned July 2026.
 
 **Notes**
 
-- Path-based routing: browser `NEXT_PUBLIC_API_URL` is the ALB origin (no `:5000`). Rebuild web image when that URL changes.
-- HTTP-only today (`COOKIE_SECURE=false`, host-only cookies). Add ACM + HTTPS + real domain before production traffic.
-- Marketplace is custodial until `MARKETPLACE_CONTRACT_ADDRESS` is set in the secret / task env.
+- Path-based routing: browser `NEXT_PUBLIC_API_URL` is the public HTTPS origin (no `:5000`). Rebuild the web image whenever that URL or any `NEXT_PUBLIC_*` value changes.
+- HTTPS is live (`COOKIE_SECURE=true`, `COOKIE_DOMAIN=.clawxlab.xyz`). HTTP requests to the ALB redirect to HTTPS.
+- On-chain marketplace address is set in Secrets Manager after `deploy:marketplace:testnet` (see `packages/contracts/deployments/mstTestnet-marketplace.json`). Without it, resale falls back to custodial DB transfers.
 - JWT PEMs are baked into the API image for this bootstrap; prefer Secrets Manager mounts for long-term ops.
+- RDS connections from ECS must use `?sslmode=no-verify` (or mount the RDS CA) because the managed Postgres certificate chain is not trusted by Node by default.
+- Web3Auth allowlist must include `https://mstticket.clawxlab.xyz` for the Sapphire Devnet Client ID baked into the web image. See [`docs/AUTH.md`](./AUTH.md).
 
 ### Rebuild / roll images
 
@@ -475,13 +477,27 @@ aws ecs update-service --cluster ticketchain-prod --service ticketchain-worker -
 
 # Web (bake NEXT_PUBLIC_* at build)
 docker build -f apps/web/Dockerfile \
-  --build-arg NEXT_PUBLIC_API_URL=http://ticketchain-prod-591279368.ap-south-1.elb.amazonaws.com \
+  --build-arg NEXT_PUBLIC_API_URL=https://mstticket.clawxlab.xyz \
   --build-arg NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=... \
   --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=... \
   -t 123209654070.dkr.ecr.ap-south-1.amazonaws.com/ticketchain/web:latest .
 docker push 123209654070.dkr.ecr.ap-south-1.amazonaws.com/ticketchain/web:latest
 aws ecs update-service --cluster ticketchain-prod --service ticketchain-web --force-new-deployment
 ```
+
+### Attach ACM HTTPS (if recreating the listener)
+
+```bash
+CERT_ARN=arn:aws:acm:ap-south-1:123209654070:certificate/05efab72-08a8-4038-bfa8-6dd7db0ae176
+ALB_ARN=arn:aws:elasticloadbalancing:ap-south-1:123209654070:loadbalancer/app/ticketchain-prod/25d6c4ca11805a38
+WEB_TG=arn:aws:elasticloadbalancing:ap-south-1:123209654070:targetgroup/ticketchain-web/3ca43cb779fc39ca
+API_TG=arn:aws:elasticloadbalancing:ap-south-1:123209654070:targetgroup/ticketchain-api/c27227cba5692ba1
+
+# Create HTTPS :443 with cert, path rules for /api/* and /health, then
+# set HTTP :80 default action to redirect HTTPS 301.
+```
+
+DNS CNAME: `mstticket` → `ticketchain-prod-591279368.ap-south-1.elb.amazonaws.com`.
 
 ---
 
@@ -573,7 +589,8 @@ Schema rollbacks require a deliberate `migrate:down` (dangerous on prod — pref
 
 - [ ] Fresh JWT RS256 keypair for this environment
 - [ ] All secrets in Secrets Manager / K8s Secret — not in git
-- [ ] `COOKIE_SECURE=true`, HTTP-only cookies
+- [ ] `COOKIE_SECURE=true` behind HTTPS; `COOKIE_DOMAIN=.clawxlab.xyz` for the live host
+- [ ] Web3Auth allowlist includes `https://mstticket.clawxlab.xyz`
 - [ ] CORS / `FRONTEND_URL` locked to production web origin
 - [ ] `ALLOW_DIRECT_MINT=false` (unless intentionally enabled)
 - [ ] ChainPay webhook HMAC secret set and verified
