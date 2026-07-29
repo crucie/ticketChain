@@ -443,9 +443,11 @@ Separate from `clawx-*`. Provisioned July 2026.
 
 | Resource | Name / value |
 |----------|----------------|
-| **Public URL** | http://ticketchain-prod-591279368.ap-south-1.elb.amazonaws.com |
-| **Health** | http://ticketchain-prod-591279368.ap-south-1.elb.amazonaws.com/health |
-| ALB | `ticketchain-prod` (HTTP :80; `/` → web, `/api/*` + `/health` → api) |
+| **Public URL** | https://mstticket.clawxlab.xyz |
+| **Health** | https://mstticket.clawxlab.xyz/health |
+| ALB | `ticketchain-prod` (HTTPS :443 with ACM; HTTP :80 → 301 HTTPS; `/` → web, `/api/*` + `/health` → api) |
+| ACM cert | `mstticket.clawxlab.xyz` (`arn:aws:acm:ap-south-1:123209654070:certificate/05efab72-08a8-4038-bfa8-6dd7db0ae176`) |
+| ALB DNS (CNAME target) | `ticketchain-prod-591279368.ap-south-1.elb.amazonaws.com` |
 | ECS cluster | `ticketchain-prod` |
 | ECS services | `ticketchain-api`, `ticketchain-web`, `ticketchain-worker` |
 | ECR | `ticketchain/api`, `ticketchain/web` |
