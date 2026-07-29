@@ -141,6 +141,8 @@ docker build -f apps/web/Dockerfile -t ticketchain/web:latest .
 ## Documentation
 
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — local + AWS deployment guide
+- [docs/CUSTOM_DOMAIN.md](docs/CUSTOM_DOMAIN.md) — ACM / ALB HTTPS for mstticket.clawxlab.xyz
+- [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) — local run checklist
 - [docs/AUTH.md](docs/AUTH.md) — authentication strategy
 - [docs/WEB3AUTH.md](docs/WEB3AUTH.md) — Web3Auth allowlist and MST network checklist
 - [docs/DIRECT_MINT_AND_WALLET.md](docs/DIRECT_MINT_AND_WALLET.md) — direct mint, tMSTC, wallet balance setup
