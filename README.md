@@ -127,22 +127,23 @@ POST /api/tickets/mint             Direct on-chain mint (dev; requires ALLOW_DIR
 
 ## Production deployment
 
+Live HTTPS: **https://mstticket.clawxlab.xyz**
+
 See the full guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** (AWS, secrets, images, K8s/ECS, migrations, checklist).
+Auth / Web3Auth allowlist: **[docs/AUTH.md](docs/AUTH.md)** · **[docs/WEB3AUTH.md](docs/WEB3AUTH.md)**.
 
 ```bash
 # Build container images
 docker build -f apps/api/Dockerfile -t ticketchain/api:latest .
 docker build -f apps/web/Dockerfile -t ticketchain/web:latest .
-
-# Apply Kubernetes manifests
-kubectl apply -f deploy/k8s/
 ```
 
 ## Documentation
 
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — local + AWS deployment guide
-- [TICKETCHAIN_MASTER_SPEC.md](TICKETCHAIN_MASTER_SPEC.md) — full architecture specification
 - [docs/AUTH.md](docs/AUTH.md) — authentication strategy
+- [docs/WEB3AUTH.md](docs/WEB3AUTH.md) — Web3Auth allowlist and MST network checklist
 - [docs/DIRECT_MINT_AND_WALLET.md](docs/DIRECT_MINT_AND_WALLET.md) — direct mint, tMSTC, wallet balance setup
+- [TICKETCHAIN_MASTER_SPEC.md](TICKETCHAIN_MASTER_SPEC.md) — full architecture specification
 
 Blockchain SDK: [@mstblockchain/mst-sdk](https://www.npmjs.com/package/@mstblockchain/mst-sdk)
