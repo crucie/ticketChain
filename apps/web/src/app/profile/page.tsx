@@ -121,6 +121,33 @@ export default function ProfilePage() {
   const [faucetErr, setFaucetErr] = useState<string | null>(null);
   const [walletAddressCopied, setWalletAddressCopied] = useState(false);
   const [externalWalletAddressCopied, setExternalWalletAddressCopied] = useState(false);
+  const [faucetCopyNotice, setFaucetCopyNotice] = useState<{
+    message: string;
+    error: boolean;
+  } | null>(null);
+
+  const copyFaucetWalletAddress = async () => {
+    const address = externalWallet?.address ?? user?.walletAddress;
+    if (!address) {
+      setFaucetCopyNotice({ message: 'Connect a wallet before using the faucet.', error: true });
+      setTimeout(() => setFaucetCopyNotice(null), 3000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setFaucetCopyNotice({
+        message: 'Wallet address copied. Paste it into the MST faucet.',
+        error: false,
+      });
+    } catch {
+      setFaucetCopyNotice({
+        message: 'Could not copy automatically. Copy the wallet address shown above.',
+        error: true,
+      });
+    }
+    setTimeout(() => setFaucetCopyNotice(null), 3000);
+  };
 
   const handleRequestPlatformFaucet = async () => {
     if (!user?.walletAddress) return;
@@ -133,8 +160,8 @@ export default function ProfilePage() {
         setFaucetMessage(`Successfully requested tMSTC! Tx Hash: ${res.txHash || 'completed'}`);
       } else {
         setFaucetMessage(res.message || 'Directing to faucet website...');
-        void navigator.clipboard.writeText(user.walletAddress);
-        window.open(res.externalUrl, '_blank');
+        void copyFaucetWalletAddress();
+        window.open(res.externalUrl, '_blank', 'noopener,noreferrer');
       }
       // update balance
       const walletData = await getWalletBalance().catch(() => null);
@@ -147,10 +174,8 @@ export default function ProfilePage() {
   };
 
   const handleGoToExternalFaucet = () => {
-    if (user?.walletAddress) {
-      void navigator.clipboard.writeText(user.walletAddress);
-    }
-    window.open('https://faucet.mstblockchain.com/', '_blank');
+    window.open('https://faucet.mstblockchain.com/', '_blank', 'noopener,noreferrer');
+    void copyFaucetWalletAddress();
   };
 
 
@@ -763,6 +788,24 @@ export default function ProfilePage() {
           }
         }}
       />
+      {faucetCopyNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-5 right-5 z-[70] flex max-w-sm items-center gap-2 rounded-lg border px-4 py-3 text-xs font-mono shadow-lg ${
+            faucetCopyNotice.error
+              ? 'border-red-200 bg-red-50 text-red-800'
+              : 'border-green-200 bg-green-50 text-green-800'
+          }`}
+        >
+          {faucetCopyNotice.error ? (
+            <AlertCircle className="h-4 w-4 shrink-0" />
+          ) : (
+            <Check className="h-4 w-4 shrink-0" />
+          )}
+          <span>{faucetCopyNotice.message}</span>
+        </div>
+      )}
     </>
   );
 }
