@@ -141,8 +141,9 @@ export function WalletConnectModal({
         setFaucetMsg(`Sent ${formatWeiToTmstc(result.amountWei)} tMSTC to your wallet.`);
         setBalanceWei(result.balanceWei);
       } else {
+        void navigator.clipboard.writeText(result.targetAddress);
         window.open(result.externalUrl, '_blank', 'noopener,noreferrer');
-        setFaucetMsg('Opened MST testnet faucet in a new tab.');
+        setFaucetMsg('Copied your wallet address and opened the MST testnet faucet.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Faucet request failed');
