@@ -120,6 +120,7 @@ export default function ProfilePage() {
   const [faucetMessage, setFaucetMessage] = useState<string | null>(null);
   const [faucetErr, setFaucetErr] = useState<string | null>(null);
   const [walletAddressCopied, setWalletAddressCopied] = useState(false);
+  const [externalWalletAddressCopied, setExternalWalletAddressCopied] = useState(false);
 
   const handleRequestPlatformFaucet = async () => {
     if (!user?.walletAddress) return;
@@ -499,7 +500,28 @@ export default function ProfilePage() {
                             <p className="text-[10px] font-mono text-zinc-500 uppercase">
                               {externalWallet.provider}
                             </p>
-                            <p className="text-xs font-mono text-zinc-700 break-all">{externalWallet.address}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="min-w-0 flex-1 text-xs font-mono text-zinc-700 break-all">
+                                {externalWallet.address}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(externalWallet.address);
+                                  setExternalWalletAddressCopied(true);
+                                  setTimeout(() => setExternalWalletAddressCopied(false), 2000);
+                                }}
+                                className="p-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded flex items-center justify-center transition-colors shrink-0"
+                                title={`Copy ${externalWallet.provider} wallet address`}
+                                aria-label={`Copy ${externalWallet.provider} wallet address`}
+                              >
+                                {externalWalletAddressCopied ? (
+                                  <Check className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
                             {externalBalanceWei !== null && (
                               <p className="text-sm font-bold font-mono text-zinc-950">
                                 {formatWeiToTmstc(externalBalanceWei)} tMSTC
@@ -519,32 +541,42 @@ export default function ProfilePage() {
                         )}
                       </div>
 
-                      <div className="space-y-1.5">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-400">
-                          Ticket wallet (on file)
-                        </span>
-                        <div className="flex gap-2">
-                          <p className="flex-1 text-xs font-mono text-zinc-700 break-all bg-zinc-50 border border-zinc-100 rounded p-2 select-all truncate">
-                            {user.walletAddress}
+                      {!externalWallet && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-400">
+                            Ticket wallet (on file)
+                          </span>
+                          <div className="flex gap-2">
+                            <p className="flex-1 text-xs font-mono text-zinc-700 break-all bg-zinc-50 border border-zinc-100 rounded p-2 select-all truncate">
+                              {user.walletAddress}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(user.walletAddress);
+                                setWalletAddressCopied(true);
+                                setTimeout(() => setWalletAddressCopied(false), 2000);
+                              }}
+                              className="px-3 bg-zinc-900 hover:bg-zinc-800 text-white rounded flex items-center justify-center transition-colors shrink-0"
+                              title="Copy Wallet Address"
+                            >
+                              {walletAddressCopied ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 font-mono">
+                            Minted tickets go here. Connect MetaMask above to switch.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(user.walletAddress);
-                              setWalletAddressCopied(true);
-                              setTimeout(() => setWalletAddressCopied(false), 2000);
-                            }}
-                            className="px-3 bg-zinc-900 hover:bg-zinc-800 text-white rounded flex items-center justify-center transition-colors shrink-0"
-                            title="Copy Wallet Address"
-                          >
-                            {walletAddressCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
+                          <ContractExplorerLink
+                            value={user.walletAddress}
+                            type="address"
+                            className="text-[10px]"
+                          />
                         </div>
-                        <p className="text-[10px] text-zinc-400 font-mono">
-                          Minted tickets go here. Connect MetaMask above to switch.
-                        </p>
-                        <ContractExplorerLink value={user.walletAddress} type="address" className="text-[10px]" />
-                      </div>
+                      )}
 
                       {/* MST Blockchain Faucet Widget */}
                       <div className="border-t border-zinc-150 pt-4 space-y-3">
