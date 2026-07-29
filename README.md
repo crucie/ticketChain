@@ -2,55 +2,92 @@
 
 Enterprise NFT ticketing platform on the MST Blockchain — multi-tenant SaaS monorepo.
 
+Live site: **https://mstticket.clawxlab.xyz**
+
 ## Prerequisites
 
-- Node.js 20+
-- pnpm 9+
-- Docker Desktop
+- Node.js **20+**
+- pnpm **9+**
+- Docker Desktop (running)
 
-## Quick start
+## Run locally (quick start)
+
+### 1. One-time setup
 
 ```bash
-# 1. Copy environment file
 cp .env.example .env
+# Fill at least: WEB3AUTH_CLIENT_ID, NEXT_PUBLIC_WEB3AUTH_CLIENT_ID,
+# MST_DEPLOYER_PRIVATE_KEY, and (optional) NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
-# 2. Start Postgres + Redis (Docker)
 pnpm docker:up
-
-# 3. Install dependencies
 pnpm install
 pnpm --filter @ticketchain/shared build
-
-# 4. Run migrations + seed
+pnpm --filter @ticketchain/api generate:keys
 pnpm migrate
 pnpm seed
-
-# 5. Generate JWT keys (first time)
-pnpm --filter @ticketchain/api generate:keys
-
-# 6. Start services (separate terminals)
-pnpm dev:api          # API on http://localhost:5000
-pnpm dev:web          # Web on http://localhost:3000
-pnpm --filter @ticketchain/api worker:dev   # BullMQ background worker
 ```
 
-Health: http://localhost:5000/health
+Docker ports used by `.env`:
 
-## Docker services
-
-| Service  | Host port | Notes                          |
-|----------|-----------|--------------------------------|
-| Postgres | **25432** | Avoids conflict with local PG  |
+| Service  | Host port | Notes |
+|----------|-----------|--------|
+| Postgres | **25432** | Avoids conflict with local Postgres |
 | Redis    | **16379** | Avoids conflict with local Redis |
 
-## Seed data (dev)
+### 2. Start the app (3 terminals)
 
-| Role            | Email                   | Password      |
-|-----------------|-------------------------|---------------|
-| Platform admin  | admin@ticketchain.com   | ChangeMe123!  |
-| Org super admin | founder@demo-org.com    | Web3Auth      |
+```bash
+pnpm dev:api
+```
 
-Organisation slug: `demo-events`
+```bash
+pnpm dev:web
+```
+
+```bash
+pnpm --filter @ticketchain/api worker:dev
+```
+
+### 3. Open these URLs
+
+| What | URL |
+|------|-----|
+| Web app | http://localhost:3000 |
+| API health | http://localhost:5000/health |
+| Platform admin | http://localhost:3000/login → Platform Administrator Portal |
+
+### 4. Seed logins
+
+| Role | How to sign in |
+|------|----------------|
+| Platform admin | `admin@ticketchain.com` / `ChangeMe123!` |
+| Org / consumer | Web3Auth email/SMS on `/login` |
+
+Demo org slug: `demo-events`
+
+### 5. After first consumer sign-in
+
+1. Open http://localhost:3000/profile
+2. Connect **MetaMask** or **Phantom** (required)
+3. Use tickets, mint, check-in, etc.
+
+### Local Web3Auth note
+
+In the Web3Auth dashboard, allowlist:
+
+```text
+http://localhost:3000
+```
+
+`WEB3AUTH_CLIENT_ID` and `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID` must be the same Client ID (Sapphire Devnet).
+
+### Stop local deps
+
+```bash
+pnpm docker:down
+```
+
+More detail: [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) · [docs/WEB3AUTH.md](docs/WEB3AUTH.md)
 
 ## Project structure
 
@@ -60,7 +97,7 @@ apps/web          Next.js 14 App Router (consumer, admin, platform, scanner PWA)
 packages/shared   Shared TypeScript types & constants
 packages/contracts Hardhat — EventTickets1155, OrgRegistry, TicketMarketplace
 deploy/k8s        Kubernetes manifests (API, web, worker)
-docs/             AUTH.md — Web3Auth vs SARAL strategy
+docs/             AUTH, DEPLOYMENT, WEB3AUTH, LOCAL_DEV, …
 ```
 
 ## Web application routes
@@ -87,7 +124,7 @@ pnpm contracts:deploy:testnet   # Deploy OrgRegistry to MST testnet
 | `OrgRegistry` | Registers org wallets on-chain |
 | `TicketMarketplace` | On-chain resale with price cap enforcement |
 
-Set `MARKETPLACE_CONTRACT_ADDRESS` in `.env` after deploying the marketplace contract.
+Set `MARKETPLACE_CONTRACT_ADDRESS` in `.env` after deploying the marketplace contract. See [packages/contracts/MARKETPLACE.md](packages/contracts/MARKETPLACE.md).
 
 ## Authentication
 
@@ -118,6 +155,7 @@ POST /api/tickets/mint             Direct on-chain mint (dev; requires ALLOW_DIR
 | Command | Description |
 |---------|-------------|
 | `pnpm docker:up` | Start Postgres + Redis |
+| `pnpm docker:down` | Stop Postgres + Redis |
 | `pnpm migrate` | Run DB migrations |
 | `pnpm seed` | Insert dev seed data |
 | `pnpm dev:api` | Start API on port 5000 |
