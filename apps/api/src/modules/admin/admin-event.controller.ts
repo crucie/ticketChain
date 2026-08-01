@@ -93,6 +93,7 @@ export async function deployEventHandler(req: Request, res: Response): Promise<v
       deployment: 'deployment' in result ? result.deployment : undefined,
     });
   } catch (error) {
+    console.error('[admin/deploy] failed:', error);
     const message = error instanceof Error ? error.message : 'Contract deployment failed';
     res.status(500).json({ success: false, error: message });
   }
